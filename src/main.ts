@@ -2,6 +2,13 @@ import './style.css';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
+//import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+//import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
+//import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+
+import { AudioListener } from 'three';
+import { AudioLoader } from 'three';
+import { Audio } from 'three';
 
 // Scene + Camera + Renderer
 const scene = new THREE.Scene();
@@ -22,6 +29,22 @@ scene.add(hemi);
 const dir = new THREE.DirectionalLight(0xffffff, 0.8);
 dir.position.set(5, 10, 7.5);
 scene.add(dir);
+
+// Music
+const listener = new THREE.AudioListener();
+camera.add(listener);
+
+const sound = new THREE.Audio(listener);
+const audioLoader = new THREE.AudioLoader();
+
+// Replace URL below with any of the streams above
+audioLoader.load('https://ice4.somafm.com/groovesalad-128-mp3', function(buffer) {
+    sound.setBuffer(buffer);
+    sound.setLoop(true);
+    sound.setVolume(0.5);
+    sound.play();
+});
+
 
 // Controls
 const controls = new PointerLockControls(camera, renderer.domElement);
