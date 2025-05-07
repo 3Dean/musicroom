@@ -6,9 +6,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 //import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 //import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-import { AudioListener } from 'three';
-import { AudioLoader } from 'three';
-import { Audio } from 'three';
+import { Audio as ThreeAudio } from 'three';
 
 // Scene + Camera + Renderer
 const scene = new THREE.Scene();
@@ -34,22 +32,33 @@ scene.add(dir);
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
-const sound = new THREE.Audio(listener);
-const audioLoader = new THREE.AudioLoader();
+const sound = new ThreeAudio(listener);
 
-// Replace URL below with any of the streams above
-audioLoader.load('https://ice4.somafm.com/groovesalad-128-mp3', function(buffer) {
-    sound.setBuffer(buffer);
-    sound.setLoop(true);
-    sound.setVolume(0.5);
-    sound.play();
-});
+// Streaming audio via HTMLAudioElement to support continuous audio stream
+const audioElement = document.createElement('audio');
+audioElement.crossOrigin = 'anonymous';
+audioElement.loop = true;
+audioElement.preload = 'auto';
+audioElement.volume = 0.5;
+audioElement.style.display = 'none';
+audioElement.src = 'https://ice4.somafm.com/groovesalad-128-mp3';
+document.body.appendChild(audioElement);
+sound.setMediaElementSource(audioElement);
+sound.setVolume(0.5);
+// Plan to play audioElement on user interaction to comply with browser autoplay policies
 
 
 // Controls
 const controls = new PointerLockControls(camera, renderer.domElement);
 scene.add(controls.object);
-document.body.addEventListener('click', () => controls.lock());
+document.body.addEventListener('click', () => {
+    controls.lock();
+    if (listener.context.state === 'suspended') {
+        listener.context.resume();
+    }
+    audioElement.play();
+    sound.play();
+});
 
 // Navmesh collision collector
 const collidableMeshList: THREE.Mesh[] = [];
