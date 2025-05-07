@@ -16,7 +16,7 @@ const totalFrames = 4; // Only 4 quadrant frames
 
 // --- Particle geometry ---
 const geometry = new THREE.BufferGeometry();
-const count = 5;
+const count = 2;
 
 const positions = new Float32Array(count * 3);
 const offsets = new Float32Array(count);
@@ -108,7 +108,7 @@ gl_PointSize = 256.0 / -mvPosition.z;
 function animate() {
   requestAnimationFrame(animate);
   
-  material.uniforms.time.value += 0.01; // Advance through 4-frame animation
+  material.uniforms.time.value += 0.005; // Advance through 4-frame animation
   renderer.render(scene, camera);
 }
 

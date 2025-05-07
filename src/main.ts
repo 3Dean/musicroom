@@ -26,11 +26,11 @@ renderer.domElement.style.outline = 'none';
 (window as any).renderer = renderer;
 
 // Lights
-const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+const hemi = new THREE.HemisphereLight(0xfff3e6, 0x444444, 1.2);
 hemi.position.set(0, 20, 0);
 scene.add(hemi);
 
-const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+const dir = new THREE.DirectionalLight(0xfde6ff, 0.7);
 dir.position.set(5, 10, 7.5);
 scene.add(dir);
 
@@ -65,13 +65,19 @@ scene.add(controls.object);
 document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === renderer.domElement) {
         renderer.domElement.focus();
+        renderer.domElement.style.cursor = "none";
     } else {
+        renderer.domElement.style.cursor = "auto";
         // Reset movement state when pointer is unlocked
         moveState.forward = false;
         moveState.backward = false;
         moveState.left = false;
         moveState.right = false;
     }
+});
+// ESC key shows cursor
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') renderer.domElement.style.cursor = 'auto';
 });
 
  // Click on audio element: resume context and start audio
@@ -126,6 +132,7 @@ loader.load('/models/navmesh.glb', (gltf: any) => {
       const mesh = child as THREE.Mesh;
       mesh.visible = false;
       collidableMeshList.push(mesh);
+      
     }
   });
 });
@@ -141,6 +148,7 @@ loader.load('/models/mixingboard.glb', (gltf: any) => {
       stdMat.emissiveMap = emitTextures[0];
       mesh.material = stdMat;
       mixingBoardMeshes.push(mesh);
+      
     }
   });
   scene.add(board);
@@ -165,9 +173,13 @@ const staticModelUrls = [
   '/models/plants.glb',
   '/models/soundboard.glb',
   '/models/speakers.glb',
-  '/models/structure.glb',
+  //'/models/structure.glb',
   '/models/vinylrecord.glb',
-  '/models/sphereenv.glb'
+  '/models/sphereenv.glb',
+  '/models/structure_floor.glb',
+  '/models/structure_wall001.glb',
+  '/models/structure_wall002.glb',
+  '/models/structure_wall003.glb'
 ];
 
 const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
