@@ -143,9 +143,24 @@ const staticModelUrls = [
   '/models/vinylrecord.glb',
   '/models/sphereenv.glb'
 ];
+
+const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
+const interactiveObjects: THREE.Mesh[] = [];
+let heldObject: THREE.Mesh | null = null;
+const raycaster = new THREE.Raycaster();
+const pickupDistance = 2;
+let hoveredObject: THREE.Mesh | null = null;
 staticModelUrls.forEach(url => {
   loader.load(url, (gltf: any) => {
-    scene.add(gltf.scene);
+    const modelScene = gltf.scene;
+    scene.add(modelScene);
+    if (pickableUrls.includes(url)) {
+      modelScene.traverse((child: THREE.Object3D) => {
+        if ((child as THREE.Mesh).isMesh) {
+          interactiveObjects.push(child as THREE.Mesh);
+        }
+      });
+    }
   });
 });
 
@@ -169,6 +184,32 @@ loader.load('/models/tvscreen.glb', (gltf: any) => {
     }
   });
   scene.add(gltf.scene);
+});
+
+// PICKUP interaction
+window.addEventListener('mousedown', (event) => {
+  event.preventDefault();
+  if (heldObject) {
+    // Drop object
+    const directionVector = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+    const dropPosition = camera.getWorldPosition(new THREE.Vector3()).add(directionVector.multiplyScalar(pickupDistance));
+    controls.object.remove(heldObject);
+    scene.add(heldObject);
+    heldObject.position.copy(dropPosition);
+    heldObject = null;
+  } else {
+      // Pick up object
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+      const intersects = raycaster.intersectObjects<THREE.Mesh>(interactiveObjects, true);
+      if (intersects.length > 0) {
+        const picked = intersects[0].object as THREE.Mesh;
+        heldObject = picked;
+        // @ts-ignore
+        scene.remove(heldObject);
+        controls.object.add(heldObject);
+        heldObject.position.set(0, 0, -pickupDistance);
+      }
+  }
 });
 
 // WASD movement + collision
@@ -200,6 +241,27 @@ window.addEventListener('resize', () => {
 // Main loop
 function animate() {
   requestAnimationFrame(animate);
+
+  // Hover highlight detection
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const hoverHits = raycaster.intersectObjects<THREE.Mesh>(interactiveObjects, true);
+  if (hoverHits.length > 0) {
+    const picked = hoverHits[0].object as THREE.Mesh;
+    if (picked !== hoveredObject) {
+      if (hoveredObject) {
+        const prevMat = hoveredObject.material as THREE.MeshStandardMaterial;
+        prevMat.emissive.setHex(0x000000);
+      }
+      hoveredObject = picked;
+      const mat = hoveredObject.material as THREE.MeshStandardMaterial;
+      mat.emissive = new THREE.Color(0x00ff00);
+      mat.emissiveIntensity = 0.5;
+    }
+  } else if (hoveredObject) {
+    const mat = hoveredObject.material as THREE.MeshStandardMaterial;
+    mat.emissive.setHex(0x000000);
+    hoveredObject = null;
+  }
 
   // Animate emissive map
   if (mixingBoardMeshes.length > 0) {
