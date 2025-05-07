@@ -18,6 +18,9 @@ camera.position.set(-1, 1.6, 0);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+renderer.domElement.tabIndex = 0;
+renderer.domElement.style.outline = 'none';
+
 (window as any).scene = scene;
 (window as any).camera = camera;
 (window as any).renderer = renderer;
@@ -37,31 +40,51 @@ camera.add(listener);
 
 const sound = new ThreeAudio(listener);
 
-// Streaming audio via HTMLAudioElement to support continuous audio stream
-const audioElement = document.createElement('audio');
-audioElement.crossOrigin = 'anonymous';
-audioElement.loop = true;
-audioElement.preload = 'auto';
-audioElement.volume = 0.0;
-audioElement.style.display = 'none';
-audioElement.src = 'https://ice4.somafm.com/groovesalad-128-mp3';
-document.body.appendChild(audioElement);
+ // Use existing HTML audio element for controls and audio source
+ const audioElement = document.querySelector('audio') as HTMLAudioElement;
+ audioElement.crossOrigin = 'anonymous';
+ audioElement.loop = true;
+ audioElement.volume = 0.5;
 sound.setMediaElementSource(audioElement);
 sound.setVolume(0.5);
+ audioElement.addEventListener('play', () => {
+     if (listener.context.state === 'suspended') listener.context.resume();
+     sound.play();
+ });
+
+
+
 // Plan to play audioElement on user interaction to comply with browser autoplay policies
 
 
 // Controls
 const controls = new PointerLockControls(camera, renderer.domElement);
 scene.add(controls.object);
-document.body.addEventListener('click', () => {
-    controls.lock();
-    if (listener.context.state === 'suspended') {
-        listener.context.resume();
+
+// Ensure renderer canvas regains focus when pointer lock is active
+document.addEventListener('pointerlockchange', () => {
+    if (document.pointerLockElement === renderer.domElement) {
+        renderer.domElement.focus();
+    } else {
+        // Reset movement state when pointer is unlocked
+        moveState.forward = false;
+        moveState.backward = false;
+        moveState.left = false;
+        moveState.right = false;
     }
-    audioElement.play();
-    sound.play();
 });
+
+ // Click on audio element: resume context and start audio
+ audioElement.addEventListener('click', (e) => {
+     e.stopPropagation();
+     if (listener.context.state === 'suspended') listener.context.resume();
+     sound.play();
+ });
+
+ // Click on canvas to lock pointer and resume audio context
+ renderer.domElement.addEventListener('click', () => {
+     controls.lock();
+ });
 
 // Navmesh collision collector
 const collidableMeshList: THREE.Mesh[] = [];
@@ -221,18 +244,19 @@ const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const clock = new THREE.Clock();
 
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyW') moveState.forward = true;
-  if (e.code === 'KeyS') moveState.backward = true;
-  if (e.code === 'KeyA') moveState.left = true;
-  if (e.code === 'KeyD') moveState.right = true;
-});
-window.addEventListener('keyup', (e) => {
-  if (e.code === 'KeyW') moveState.forward = false;
-  if (e.code === 'KeyS') moveState.backward = false;
-  if (e.code === 'KeyA') moveState.left = false;
-  if (e.code === 'KeyD') moveState.right = false;
-});
+ // WASD movement + collision (global listener for key events)
+ window.addEventListener('keydown', (e) => {
+   if (e.code === 'KeyW') moveState.forward = true;
+   if (e.code === 'KeyS') moveState.backward = true;
+   if (e.code === 'KeyA') moveState.left = true;
+   if (e.code === 'KeyD') moveState.right = true;
+ });
+ window.addEventListener('keyup', (e) => {
+   if (e.code === 'KeyW') moveState.forward = false;
+   if (e.code === 'KeyS') moveState.backward = false;
+   if (e.code === 'KeyA') moveState.left = false;
+   if (e.code === 'KeyD') moveState.right = false;
+ });
 
 // Handle resize
 window.addEventListener('resize', () => {
