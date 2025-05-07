@@ -39,7 +39,7 @@ const audioElement = document.createElement('audio');
 audioElement.crossOrigin = 'anonymous';
 audioElement.loop = true;
 audioElement.preload = 'auto';
-audioElement.volume = 0.5;
+audioElement.volume = 0.0;
 audioElement.style.display = 'none';
 audioElement.src = 'https://ice4.somafm.com/groovesalad-128-mp3';
 document.body.appendChild(audioElement);
