@@ -18,6 +18,9 @@ camera.position.set(-1, 1.6, 0);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
+(window as any).scene = scene;
+(window as any).camera = camera;
+(window as any).renderer = renderer;
 
 // Lights
 const hemi = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
