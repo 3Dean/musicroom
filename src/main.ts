@@ -490,7 +490,6 @@ const staticModelUrls = [
   '/models/image03.glb',
   '/models/image04.glb',
   '/models/leakstereo.glb',
-  '/models/plants.glb',
   '/models/soundboard.glb',
   '/models/speakers.glb',
   //'/models/structure.glb',
@@ -500,7 +499,10 @@ const staticModelUrls = [
   '/models/structure_wall001.glb',
   '/models/structure_wall002.glb',
   '/models/structure_wall003.glb',
-  '/models/rug.glb'
+  '/models/rug.glb',
+  //'/models/plants.glb',
+  '/models/plantleaves.glb',
+  '/models/plantstands.glb',
 ];
 
 const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
