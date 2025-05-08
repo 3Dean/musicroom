@@ -1,4 +1,35 @@
+// Function to toggle light helpers visibility
+/* function toggleLightHelpers() {
+  if (lightHelpers.length === 0) {
+    console.log("No light helpers to toggle");
+    return;
+  }
+  
+  // Toggle visibility of all helpers
+  let currentState = null;
+  
+  // Get current state from first helper
+  if (lightHelpers[0]) {
+    currentState = lightHelpers[0].visible;
+  }
+  
+  // Toggle to opposite state
+  const newState = (currentState === null) ? true : !currentState;
+  
+  lightHelpers.forEach(helper => {
+    helper.visible = newState;
+  });
+  
+  console.log(`Light helpers ${newState ? 'shown' : 'hidden'}`);
+} */
 import './style.css';
+
+// Extend the Window interface to include customLights
+declare global {
+  interface Window {
+    customLights?: THREE.PointLight[];
+  }
+}
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
@@ -7,6 +38,10 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 //import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
 import { Audio as ThreeAudio } from 'three';
+
+let pointLights: THREE.PointLight[] = [];
+let hues: number[] = [];
+let lightHelpers: THREE.Object3D[] = []; // Store light helpers
 
 // Scene + Camera + Renderer
 const scene = new THREE.Scene();
@@ -30,9 +65,46 @@ const hemi = new THREE.HemisphereLight(0xfff3e6, 0x444444, 1.2);
 hemi.position.set(0, 20, 0);
 scene.add(hemi);
 
-const dir = new THREE.DirectionalLight(0xfde6ff, 0.7);
+const dir = new THREE.DirectionalLight(0xfde6ff, 0.2);
 dir.position.set(5, 10, 7.5);
 scene.add(dir);
+
+// Clear any existing light helpers
+  lightHelpers.forEach(helper => {
+    if (helper.parent) {
+      helper.parent.remove(helper);
+    }
+  }); 
+  lightHelpers = [];
+
+// Add directional light helper
+/*   const directionalHelper = new THREE.DirectionalLightHelper(dir, 5);
+  scene.add(directionalHelper);
+  lightHelpers.push(directionalHelper); */
+
+  
+
+  // Point lights (original array for color cycling)
+  const positions = [
+    new THREE.Vector3(-1, 4, 0),     // Light 1
+    new THREE.Vector3(1, 4, 2),     // Light 2
+    //new THREE.Vector3(-6.7, 5, 3.17),    // Light 3
+    //new THREE.Vector3(-11, 5, 3.13)     // Light 4
+  ];
+  
+  positions.forEach((pos, i) => {
+    const light = new THREE.PointLight(0xff00ff, 100, 40, 3);
+    light.position.copy(pos);
+    scene.add(light);
+    pointLights.push(light);
+    hues.push(Math.random()); // optional: gives each light a different starting color
+    
+    // Add point light helper
+    /* const pointLightHelper = new THREE.PointLightHelper(light, 1);
+    scene.add(pointLightHelper);
+    lightHelpers.push(pointLightHelper); */
+  });
+  
 
 // Music
 const listener = new THREE.AudioListener();
@@ -179,7 +251,8 @@ const staticModelUrls = [
   '/models/structure_floor.glb',
   '/models/structure_wall001.glb',
   '/models/structure_wall002.glb',
-  '/models/structure_wall003.glb'
+  '/models/structure_wall003.glb',
+  '/models/rug.glb'
 ];
 
 const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
@@ -280,6 +353,41 @@ window.addEventListener('resize', () => {
 // Main loop
 function animate() {
   requestAnimationFrame(animate);
+
+  // Update original color cycling point lights
+  pointLights.forEach((light, i) => {
+    hues[i] += 0.002; // control speed here
+    if (hues[i] > 1) hues[i] = 0;
+    light.color.setHSL(hues[i], 1, 0.5);
+  });
+  
+  // Update custom cycling lights
+  if (window.customLights && window.customLights.length > 0) {
+    window.customLights.forEach(light => {
+      if (light.userData) {
+        light.userData.hue += light.userData.cycleSpeed || 0.001;
+        if (light.userData.hue > 1) light.userData.hue = 0;
+        light.color.setHSL(
+          light.userData.hue,
+          light.userData.saturation || 1.0,
+          light.userData.lightness || 0.5
+        );
+      }
+    });
+  }
+  
+  // Update blinking lights
+  /* if (window.blinkingLights && window.blinkingLights.length > 0) {
+    window.blinkingLights.forEach(light => {
+      if (light.userData) {
+        const { blinkSpeed, minIntensity, maxIntensity } = light.userData;
+        // Create a sine wave pattern for smooth blinking
+        const intensityFactor = (Math.sin(time * 0.001 * blinkSpeed * Math.PI) + 1) * 0.5; // 0 to 1
+        const newIntensity = minIntensity + intensityFactor * (maxIntensity - minIntensity);
+        light.intensity = newIntensity;
+      }
+    });
+  } */
 
   // Hover highlight detection
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
