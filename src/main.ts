@@ -63,55 +63,69 @@ renderer.domElement.style.outline = 'none';
 (window as any).updateModelPosition = (modelUrl: string, x: number, y: number, z: number) => {
   updateModelPosition(modelUrl, new THREE.Vector3(x, y, z));
 };
-// Function to get current couch positions
-(window as any).getCouchPositions = () => {
+// Function to get current seatable object positions
+(window as any).getSeatingPositions = () => {
   const positions: {[key: string]: THREE.Vector3} = {};
   scene.traverse((object) => {
     if (object.userData && object.userData.type) {
       const type = object.userData.type;
-      if (type === 'couch_left' || type === 'couch_right') {
+      if (type === 'couch_left' || type === 'couch_right' || type === 'chair') {
         const position = new THREE.Vector3();
         object.getWorldPosition(position);
         positions[type] = position;
       }
     }
   });
-  console.log('Current couch positions:', positions);
+  console.log('Current seating positions:', positions);
   return positions;
 };
 
-// Function to reset couch positions to default values
-(window as any).resetCouchPositions = () => {
+// Keep the old function for backward compatibility
+(window as any).getCouchPositions = (window as any).getSeatingPositions;
+
+// Function to reset seatable object positions to default values
+(window as any).resetSeatingPositions = () => {
   updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 2, 0));
   updateModelPosition('/models/couch_right.glb', new THREE.Vector3(5, 2, 0));
-  console.log('Couch positions reset to default values');
+  updateModelPosition('/models/chair.glb', new THREE.Vector3(0, 0, 2));
+  console.log('Seating positions reset to default values');
 };
 
+// Keep the old function for backward compatibility
+(window as any).resetCouchPositions = (window as any).resetSeatingPositions;
+
 // Help function to explain available functions
-(window as any).couchHelp = () => {
+(window as any).seatingHelp = () => {
   console.log(`
-Available couch position functions:
+Available seating position functions:
 
 1. updateModelPosition(modelUrl, x, y, z)
    - Updates the position of a model
    - Example: updateModelPosition('/models/couch_left.glb', -3, 0, 3)
+   - Example: updateModelPosition('/models/chair.glb', 0, 0, 3)
 
-2. getCouchPositions()
-   - Returns the current positions of all couches
-   - Example: getCouchPositions()
+2. getSeatingPositions()
+   - Returns the current positions of all seatable objects (couches and chair)
+   - Example: getSeatingPositions()
 
-3. resetCouchPositions()
-   - Resets all couch positions to their default values
-   - Example: resetCouchPositions()
+3. resetSeatingPositions()
+   - Resets all seatable object positions to their default values
+   - Example: resetSeatingPositions()
 
-4. couchHelp()
+4. seatingHelp()
    - Displays this help message
-   - Example: couchHelp()
+   - Example: seatingHelp()
+
+Note: The older functions getCouchPositions() and resetCouchPositions() 
+are still available for backward compatibility.
 `);
 };
 
+// Keep the old function for backward compatibility
+(window as any).couchHelp = (window as any).seatingHelp;
+
 // Log a message to let users know about the help function
-console.log('Type "couchHelp()" in the console to see available couch position functions');
+console.log('Type "seatingHelp()" in the console to see available seating position functions');
 
 // Function to open the couch position tester
 (window as any).openCouchTester = () => {
@@ -233,9 +247,11 @@ window.addEventListener('keydown', (e) => {
 // Navmesh collision collector
 const collidableMeshList: THREE.Mesh[] = [];
 
-// Couch interaction
+// Sitting position model and interaction
+const sittingPositionObjects: THREE.Object3D[] = [];
 const couchObjects: THREE.Object3D[] = [];
 let nearCouch: THREE.Object3D | null = null;
+let nearSittingPosition: THREE.Object3D | null = null;
 let isSitting = false;
 let sittingPosition = new THREE.Vector3();
 let sittingRotation = new THREE.Euler();
@@ -347,6 +363,74 @@ const modelPositions: { [key: string]: THREE.Vector3 } = {
   '/models/couch_right.glb': new THREE.Vector3(2.5, 0, .8)   // Adjust these values as needed
 };
 
+// Function to create sitting position models at couch and chair locations
+function createSittingPositions() {
+  // Clear existing sitting position objects
+  sittingPositionObjects.forEach(obj => {
+    scene.remove(obj);
+  });
+  sittingPositionObjects.length = 0;
+  
+  // Create new sitting position objects based on seatable object positions
+  couchObjects.forEach(seatable => {
+    const objectPosition = new THREE.Vector3();
+    seatable.getWorldPosition(objectPosition);
+    const objectType = seatable.userData.type;
+    
+    // Load and clone the sitting position model
+    loader.load('/models/sittingposition.glb', (gltf: any) => {
+      const sittingModel = gltf.scene.clone();
+      
+      // Position the sitting model relative to the object type
+      if (objectType === 'chair') {
+        // Position for chair - centered on the chair with appropriate height
+        sittingModel.position.set(objectPosition.x + 0.1, objectPosition.y + 0.5, objectPosition.z -.4);
+        
+        // For chair, we want to face forward (assuming chair faces -Z direction)
+        // You may need to adjust this angle based on the chair's orientation
+        sittingModel.rotation.set(0, 0, 0);
+      } else if (objectType === 'couch_left') {
+        // Position for left couch
+        sittingModel.position.set(objectPosition.x - 0.1, objectPosition.y + 0.5, objectPosition.z + 0.5);
+        
+        // Calculate rotation to face the center of the room
+        const centerPoint = new THREE.Vector3(0, sittingModel.position.y, 0);
+        const direction = new THREE.Vector3().subVectors(centerPoint, sittingModel.position).normalize();
+        const angle = Math.atan2(direction.x, direction.z) + Math.PI;
+        sittingModel.rotation.set(0, angle, 0);
+      } else { // couch_right
+        // Position for right couch
+        sittingModel.position.set(objectPosition.x + 0.1, objectPosition.y + 0.5, objectPosition.z + 0.5);
+        
+        // Calculate rotation to face the center of the room
+        const centerPoint = new THREE.Vector3(0, sittingModel.position.y, 0);
+        const direction = new THREE.Vector3().subVectors(centerPoint, sittingModel.position).normalize();
+        const angle = Math.atan2(direction.x, direction.z) + Math.PI;
+        sittingModel.rotation.set(0, angle, 0);
+      }
+      
+      // Store reference to which object this sitting position belongs to
+      sittingModel.userData = { 
+        type: 'sitting_position',
+        forCouch: objectType
+      };
+      
+      // Make the model invisible but keep it in the scene for interaction
+      sittingModel.traverse((child: THREE.Object3D) => {
+        if ((child as THREE.Mesh).isMesh) {
+          // Set to false to make invisible, true for debugging
+          (child as THREE.Mesh).visible = false;
+        }
+      });
+      
+      scene.add(sittingModel);
+      sittingPositionObjects.push(sittingModel);
+      
+      console.log(`Created sitting position for ${objectType} at:`, sittingModel.position);
+    });
+  });
+}
+
 // Function to update model position
 function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
   // Update the position in the modelPositions object
@@ -357,26 +441,33 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
     if (object.userData && object.userData.type) {
       const type = object.userData.type;
       if ((type === 'couch_left' && modelUrl === '/models/couch_left.glb') || 
-          (type === 'couch_right' && modelUrl === '/models/couch_right.glb')) {
+          (type === 'couch_right' && modelUrl === '/models/couch_right.glb') ||
+          (type === 'chair' && modelUrl === '/models/chair.glb')) {
         object.position.copy(position);
         
         // Update helper sphere position
-        const couchPosition = new THREE.Vector3();
-        object.getWorldPosition(couchPosition);
+        const objectPosition = new THREE.Vector3();
+        object.getWorldPosition(objectPosition);
         
-        // Find the helper sphere for this couch
+        // Find the helper sphere for this object
         scene.traverse((child) => {
           if (child.userData && child.userData.helperFor === type) {
-            child.position.copy(couchPosition);
-            child.position.y += 2; // Position above the couch for visibility
+            child.position.copy(objectPosition);
+            child.position.y += 2; // Position above the object for visibility
           }
         });
         
-        console.log(`Updated ${type} position to:`, couchPosition);
+        console.log(`Updated ${type} position to:`, objectPosition);
+        
+        // Update sitting positions when seatable objects move
+        createSittingPositions();
       }
     }
   });
 }
+
+// Add chair position to modelPositions
+modelPositions['/models/chair.glb'] = new THREE.Vector3(0, 0, 0); // Default chair position
 
 // Example usage:
 // updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 0, 3));
@@ -391,25 +482,36 @@ staticModelUrls.forEach(url => {
       modelScene.position.copy(modelPositions[url]);
     }
     
-    // Track couch objects for sitting interaction
-    if (url === '/models/couch_left.glb' || url === '/models/couch_right.glb') {
+// Track couch and chair objects for sitting interaction
+    if (url === '/models/couch_left.glb' || url === '/models/couch_right.glb' || url === '/models/chair.glb') {
       couchObjects.push(modelScene);
-      modelScene.userData.type = url.includes('left') ? 'couch_left' : 'couch_right';
       
-      // Log couch position for debugging
-      const couchPosition = new THREE.Vector3();
-      modelScene.getWorldPosition(couchPosition);
-      console.log(`Loaded ${modelScene.userData.type} at position:`, couchPosition);
+      // Set the type based on the model
+      if (url === '/models/chair.glb') {
+        modelScene.userData.type = 'chair';
+      } else {
+        modelScene.userData.type = url.includes('left') ? 'couch_left' : 'couch_right';
+      }
       
-      // Add a helper sphere to visualize the couch position
+      // Log position for debugging
+      const objectPosition = new THREE.Vector3();
+      modelScene.getWorldPosition(objectPosition);
+      console.log(`Loaded ${modelScene.userData.type} at position:`, objectPosition);
+      
+      // Add a helper sphere to visualize the position
       const sphereGeometry = new THREE.SphereGeometry(.2, 16, 16);
-      const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      const sphereMaterial = new THREE.MeshBasicMaterial({ 
+        color: url === '/models/chair.glb' ? 0x00ff00 : 0xff0000 // Green for chair, red for couches
+      });
       const sphereHelper = new THREE.Mesh(sphereGeometry, sphereMaterial);
-      sphereHelper.position.copy(couchPosition);
-      sphereHelper.position.y += 2; // Position above the couch for visibility
-      // Store reference to which couch this helper belongs to
+      sphereHelper.position.copy(objectPosition);
+      sphereHelper.position.y += 2; // Position above the object for visibility
+      // Store reference to which object this helper belongs to
       sphereHelper.userData = { helperFor: modelScene.userData.type };
       scene.add(sphereHelper);
+      
+      // Create sitting positions after all seatable objects are loaded
+      createSittingPositions();
     }
     
     if (pickableUrls.includes(url)) {
@@ -488,19 +590,28 @@ function updateDebugDisplay() {
   if (!debugDisplay) return;
   
   const playerPos = controls.object.position.clone();
-  let nearestCouchInfo = 'None';
+  let nearestObjectInfo = 'None';
+  let nearestSitPosInfo = 'None';
   
   if (nearCouch) {
-    const couchPos = new THREE.Vector3();
-    nearCouch.getWorldPosition(couchPos);
-    const distance = playerPos.distanceTo(couchPos);
-    nearestCouchInfo = `${nearCouch.userData.type}\nPosition: ${couchPos.x.toFixed(2)}, ${couchPos.y.toFixed(2)}, ${couchPos.z.toFixed(2)}\nDistance: ${distance.toFixed(2)}`;
+    const objPos = new THREE.Vector3();
+    nearCouch.getWorldPosition(objPos);
+    const distance = playerPos.distanceTo(objPos);
+    nearestObjectInfo = `${nearCouch.userData.type}\nPosition: ${objPos.x.toFixed(2)}, ${objPos.y.toFixed(2)}, ${objPos.z.toFixed(2)}\nDistance: ${distance.toFixed(2)}`;
+  }
+  
+  if (nearSittingPosition) {
+    const sitPos = new THREE.Vector3();
+    nearSittingPosition.getWorldPosition(sitPos);
+    const distance = playerPos.distanceTo(sitPos);
+    nearestSitPosInfo = `For: ${nearSittingPosition.userData.forCouch}\nPosition: ${sitPos.x.toFixed(2)}, ${sitPos.y.toFixed(2)}, ${sitPos.z.toFixed(2)}\nDistance: ${distance.toFixed(2)}`;
   }
   
   debugDisplay.textContent = 
 `Player Position: ${playerPos.x.toFixed(2)}, ${playerPos.y.toFixed(2)}, ${playerPos.z.toFixed(2)}
 Sitting: ${isSitting ? 'Yes' : 'No'}
-Nearest Couch: ${nearestCouchInfo}`;
+Nearest Seatable Object: ${nearestObjectInfo}
+Nearest Sitting Position: ${nearestSitPosInfo}`;
 }
 
 // TV screen with looping video texture
@@ -560,38 +671,24 @@ const clock = new THREE.Clock();
  // WASD movement + collision (global listener for key events)
  window.addEventListener('keydown', (e) => {
    // Handle sitting/standing with E and W keys
-   if (e.code === 'KeyE' && nearCouch && !isSitting) {
-     // Sit on the couch
+   if (e.code === 'KeyE' && nearSittingPosition && !isSitting) {
+     // Sit on the sitting position
      isSitting = true;
      standingPosition.copy(controls.object.position);
      
-     // Determine sitting position based on couch type
-     const couchType = nearCouch.userData.type;
-     const couchPosition = new THREE.Vector3();
-     nearCouch.getWorldPosition(couchPosition);
+     // Get the sitting position from the model
+     const sitPosition = new THREE.Vector3();
+     nearSittingPosition.getWorldPosition(sitPosition);
      
-     // Set position based on couch type
-     if (couchType === 'couch_left') {
-       // Adjust these offsets as needed based on the new couch position
-       sittingPosition.set(couchPosition.x - 0.2, couchPosition.y + 1.5, couchPosition.z + 0.2);
-       console.log(`Sitting on couch_left at position:`, sittingPosition);
-     } else { // couch_right
-       // Adjust these offsets as needed based on the new couch position
-       sittingPosition.set(couchPosition.x + 0.2, couchPosition.y + 1.5, couchPosition.z + 0.2);
-       console.log(`Sitting on couch_right at position:`, sittingPosition);
-     }
+     // Use the sitting position model's position and rotation
+     sittingPosition.copy(sitPosition);
+     sittingPosition.y += 1.0; // Adjust height to match the sitting position model
      
-     // Calculate rotation to face the center of the room (0,0,0)
-     const centerPoint = new THREE.Vector3(0, sittingPosition.y, 0); // Keep the same y-height
-     const direction = new THREE.Vector3().subVectors(centerPoint, sittingPosition).normalize();
+     // Get the rotation from the sitting position model
+     sittingRotation.copy(nearSittingPosition.rotation);
      
-     // Calculate the angle to the center point
-     // Math.atan2 takes (y, x) but we're working in the x-z plane for rotation around y-axis
-     // Adding Math.PI (180 degrees) to flip the direction
-     const angle = Math.atan2(direction.x, direction.z) + Math.PI;
-     sittingRotation.set(0, angle, 0);
-     
-     console.log(`Calculated rotation to face center: ${angle.toFixed(2)} radians`);
+     console.log(`Sitting at position:`, sittingPosition);
+     console.log(`Using rotation:`, sittingRotation);
      
      // Log the player's current position for debugging
      console.log(`Player position before sitting:`, controls.object.position);
@@ -727,7 +824,7 @@ function animate() {
     direction.z = Number(moveState.forward) - Number(moveState.backward);
     direction.normalize();
 
-    const speed = 50.0;
+    const speed = 40.0;
     velocity.x += direction.x * speed * delta;
     velocity.z += direction.z * speed * delta;
 
@@ -745,19 +842,27 @@ function animate() {
       controls.object.position.copy(oldPos);
     }
     
-    // Check for proximity to couches
-    let isNearAnyCouches = false;
-    if (couchObjects.length > 0) {
+    // Check for proximity to sitting positions
+    let isNearAnySittingPosition = false;
+    if (sittingPositionObjects.length > 0) {
       const playerPosition = controls.object.position.clone();
       
-      for (const couch of couchObjects) {
-        const couchPosition = new THREE.Vector3();
-        couch.getWorldPosition(couchPosition);
+      for (const sitPos of sittingPositionObjects) {
+        const sitPosition = new THREE.Vector3();
+        sitPos.getWorldPosition(sitPosition);
         
-        const distance = playerPosition.distanceTo(couchPosition);
+        const distance = playerPosition.distanceTo(sitPosition);
         if (distance < proximityDistance) { // Use the increased proximity distance
-          isNearAnyCouches = true;
-          nearCouch = couch;
+          isNearAnySittingPosition = true;
+          nearSittingPosition = sitPos;
+          
+          // Find the associated couch for reference
+          const couchType = sitPos.userData.forCouch;
+          scene.traverse((object) => {
+            if (object.userData && object.userData.type === couchType) {
+              nearCouch = object;
+            }
+          });
           
           // Show interaction prompt
           interactionPrompt.textContent = 'Press E to sit';
@@ -766,7 +871,8 @@ function animate() {
         }
       }
       
-      if (!isNearAnyCouches) {
+      if (!isNearAnySittingPosition) {
+        nearSittingPosition = null;
         nearCouch = null;
         interactionPrompt.style.display = 'none';
       }
