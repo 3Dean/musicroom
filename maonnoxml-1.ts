@@ -79,16 +79,14 @@ lightHelpers.forEach(helper => {
 lightHelpers = [];
 
 // Add directional light helper
-/*   const directionalHelper = new THREE.DirectionalLightHelper(dir, 5);
-  scene.add(directionalHelper);
-  lightHelpers.push(directionalHelper); */
+/* const directionalHelper = new THREE.DirectionalLightHelper(dir, 5);
+scene.add(directionalHelper);
+lightHelpers.push(directionalHelper); */
 
-  
-
-  // Point lights (original array for color cycling)
-  const positions = [
-    new THREE.Vector3(-1, 4, 0),     // Light 1
-    new THREE.Vector3(1, 4, 2),      // Light 2
+// Point lights (original array for color cycling)
+const positions = [
+  new THREE.Vector3(-1, 4, 0),     // Light 1
+  new THREE.Vector3(1, 4, 2),      // Light 2
   //new THREE.Vector3(-6.7, 5, 3.17),  // Light 3
   //new THREE.Vector3(-11, 5, 3.13)    // Light 4
 ];
@@ -257,7 +255,6 @@ const pickupDistance = 2;
 let hoveredObject: THREE.Mesh | null = null;
 let couchLeft: THREE.Object3D | null = null;
 let couchRight: THREE.Object3D | null = null;
-let updateCouchInteraction: (() => void) | undefined;
 
 staticModelUrls.forEach(url => {
   loader.load(url, (gltf: any) => {
@@ -271,8 +268,8 @@ staticModelUrls.forEach(url => {
     }
 
     if (couchLeft && couchRight) {
-      const couchInteraction = addCouchInteraction(couchLeft, couchRight);
-      updateCouchInteraction = couchInteraction.updateCouchInteraction;
+      const { updateCouchInteraction } = addCouchInteraction(couchLeft, couchRight);
+      (window as any).updateCouchInteraction = updateCouchInteraction; // Make it accessible globally
     }
 
     if (pickableUrls.includes(url)) {
@@ -319,17 +316,17 @@ window.addEventListener('mousedown', (event) => {
     heldObject.position.copy(dropPosition);
     heldObject = null;
   } else {
-      // Pick up object
-      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-      const intersects = raycaster.intersectObjects<THREE.Mesh>(interactiveObjects, true);
-      if (intersects.length > 0) {
-        const picked = intersects[0].object as THREE.Mesh;
-        heldObject = picked;
-        // @ts-ignore
-        scene.remove(heldObject);
-        controls.object.add(heldObject);
-        heldObject.position.set(0, 0, -pickupDistance);
-      }
+    // Pick up object
+    raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    const intersects = raycaster.intersectObjects<THREE.Mesh>(interactiveObjects, true);
+    if (intersects.length > 0) {
+      const picked = intersects[0].object as THREE.Mesh;
+      heldObject = picked;
+      // @ts-ignore
+      scene.remove(heldObject);
+      controls.object.add(heldObject);
+      heldObject.position.set(0, 0, -pickupDistance);
+    }
   }
 });
 
@@ -339,19 +336,18 @@ const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const clock = new THREE.Clock();
 
- // WASD movement + collision (global listener for key events)
- window.addEventListener('keydown', (e) => {
-   if (e.code === 'KeyW') moveState.forward = true;
-   if (e.code === 'KeyS') moveState.backward = true;
-   if (e.code === 'KeyA') moveState.left = true;
-   if (e.code === 'KeyD') moveState.right = true;
- });
- window.addEventListener('keyup', (e) => {
-   if (e.code === 'KeyW') moveState.forward = false;
-   if (e.code === 'KeyS') moveState.backward = false;
-   if (e.code === 'KeyA') moveState.left = false;
-   if (e.code === 'KeyD') moveState.right = false;
- });
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyW') moveState.forward = true;
+  if (e.code === 'KeyS') moveState.backward = true;
+  if (e.code === 'KeyA') moveState.left = true;
+  if (e.code === 'KeyD') moveState.right = true;
+});
+window.addEventListener('keyup', (e) => {
+  if (e.code === 'KeyW') moveState.forward = false;
+  if (e.code === 'KeyS') moveState.backward = false;
+  if (e.code === 'KeyA') moveState.left = false;
+  if (e.code === 'KeyD') moveState.right = false;
+});
 
 // Handle resize
 window.addEventListener('resize', () => {
@@ -386,19 +382,6 @@ function animate() {
     });
   }
   
-  // Update blinking lights
-  /* if (window.blinkingLights && window.blinkingLights.length > 0) {
-    window.blinkingLights.forEach(light => {
-      if (light.userData) {
-        const { blinkSpeed, minIntensity, maxIntensity } = light.userData;
-        // Create a sine wave pattern for smooth blinking
-        const intensityFactor = (Math.sin(time * 0.001 * blinkSpeed * Math.PI) + 1) * 0.5; // 0 to 1
-        const newIntensity = minIntensity + intensityFactor * (maxIntensity - minIntensity);
-        light.intensity = newIntensity;
-      }
-    });
-  } */
-
   // Hover highlight detection
   raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
   const hoverHits = raycaster.intersectObjects<THREE.Mesh>(interactiveObjects, true);
@@ -464,26 +447,22 @@ function animate() {
   }
 
   (window as any).updateCouchInteraction?.();
-/*   TWEEN.update();
-  (window as any).updateCouchInteraction?.();
   TWEEN.update();
-  renderer.render(scene, camera); */
-  updateCouchInteraction?.();
+  renderer.render(scene, camera);
 }
-TWEEN.update();
 
 animate();
 
 function addCouchInteraction(couchLeft: THREE.Object3D, couchRight: THREE.Object3D) {
-  const collisionBox = new THREE.Box3().setFromObject(couchLeft); // Initial box from left couch
-  collisionBox.union(new THREE.Box3().setFromObject(couchRight)); // Expand to include right couch
+  const collisionBox = new THREE.Box3().setFromObject(couchLeft);
+  collisionBox.union(new THREE.Box3().setFromObject(couchRight));
 
   const helper = new THREE.Box3Helper(collisionBox, 0xffff00);
   scene.add(helper);
 
   helper.visible = false;
 
-  const interactionDistance = 5; // Adjust as needed
+  const interactionDistance = 2; // Adjust as needed
   let canSit = false;
 
   // Create a text prompt
@@ -513,71 +492,45 @@ function addCouchInteraction(couchLeft: THREE.Object3D, couchRight: THREE.Object
   let standingPosition = new THREE.Vector3();
 
   window.addEventListener('keydown', (e) => {
-    console.log('Keydown event triggered!', e.code);
-    if (e.code === 'KeyE') {
-      console.log('KeyE event triggered!');
-      console.log('canSit:', canSit);
-      if (canSit) {
-        console.log('Sitting on the couch!');
-        // Implement sitting animation and logic here
-        controls.enabled = false; // Disable movement
-        standingPosition.copy(controls.object.position);
-        console.log('Standing position:', standingPosition);
+    if (e.code === 'KeyE' && canSit) {
+      // Sit down
+      controls.enabled = false;
+      standingPosition.copy(controls.object.position);
 
-        // Set seated position
-        const seatedPosition = new THREE.Vector3();
-        collisionBox.getCenter(seatedPosition);
-        seatedPosition.y = 1.0; // Adjust Y as needed
+      const seatedPosition = new THREE.Vector3();
+      collisionBox.getCenter(seatedPosition);
+      seatedPosition.y = 1.0;
 
-        // Smoothly move the camera to the seated position
-        console.log('Sitting animation started!');
-        console.log('Seated position:', seatedPosition);
-        new TWEEN.Tween(controls.object.position)
-          .to(seatedPosition, 500) // 500ms animation
-          .easing(TWEEN.Easing.Quadratic.InOut)
-          .start();
-
-        sitting = true;
-        promptMaterial.opacity = 0; // Hide prompt
-      }
-    } else if (e.code === 'KeyW' && sitting) {
-      console.log('Standing up!');
-      controls.enabled = true; // Enable movement
-
-      // Smoothly move the camera back to the standing position
-      console.log('Standing animation started!');
       new TWEEN.Tween(controls.object.position)
-        .to(standingPosition, 500) // 500ms animation
+        .to(seatedPosition, 500)
         .easing(TWEEN.Easing.Quadratic.InOut)
         .start();
-      console.log('Camera position after standing animation started:', controls.object.position);
-      promptMaterial.opacity = 1; // Show prompt
 
+      sitting = true;
+      promptMaterial.opacity = 0;
+    } else if (e.code === 'KeyW' && sitting) {
+      // Stand up
+      controls.enabled = true;
+      new TWEEN.Tween(controls.object.position)
+        .to(standingPosition, 500)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .start();
       sitting = false;
+      promptMaterial.opacity = 1;
     }
   });
 
   function updateCouchInteraction() {
-    const playerPosition = controls.object.position;
-    const couchCenter = new THREE.Vector3();
-    collisionBox.getCenter(couchCenter);
-    const distance = playerPosition.distanceTo(couchCenter);
-    console.log('Distance to couch:', distance);
-    console.log('Player position:', playerPosition);
-    console.log('Couch center:', couchCenter);
-    console.log('canSit:', canSit);
-
+    const distance = controls.object.position.distanceTo(collisionBox.getCenter(new THREE.Vector3()));
     if (distance < interactionDistance) {
       if (!canSit) {
-        console.log('Player near couch');
         canSit = true;
-        promptMaterial.opacity = 1; // Show prompt
+        promptMaterial.opacity = 1;
       }
     } else {
       if (canSit) {
-        console.log('Player left couch');
         canSit = false;
-        promptMaterial.opacity = 0; // Hide prompt
+        promptMaterial.opacity = 0;
       }
     }
   }
