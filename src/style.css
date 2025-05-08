@@ -25,7 +25,7 @@ a:hover {
 body {
   margin: 0;
   overflow: hidden;
-  cursor: none;
+  /* cursor: none; */
 }
 
 h1 {
@@ -107,4 +107,14 @@ button:focus-visible {
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 10;
+}
+
+/* Ensure audio controls are always visible */
+#audioControls {
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  pointer-events: auto !important;
 }

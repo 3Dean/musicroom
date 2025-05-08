@@ -48,7 +48,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x888888);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(-1, 1.6, 0);
+camera.position.set(-1, 1.6, 2.5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -85,9 +85,9 @@ renderer.domElement.style.outline = 'none';
 
 // Function to reset seatable object positions to default values
 (window as any).resetSeatingPositions = () => {
-  updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 2, 0));
-  updateModelPosition('/models/couch_right.glb', new THREE.Vector3(5, 2, 0));
-  updateModelPosition('/models/chair.glb', new THREE.Vector3(0, 0, 2));
+  updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-3.7, 0, .8));
+  updateModelPosition('/models/couch_right.glb', new THREE.Vector3(2.5, 0, .8));
+  updateModelPosition('/models/chair.glb', new THREE.Vector3(0, 0, 0));
   console.log('Seating positions reset to default values');
 };
 
@@ -190,19 +190,167 @@ scene.add(dir);
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
-const sound = new ThreeAudio(listener);
+// Get the audio controls container from the DOM
+const audioControlsContainer = document.getElementById('audioControls');
+if (!audioControlsContainer) {
+  console.error('Audio controls container not found in the DOM');
+  throw new Error('Audio controls container not found in the DOM');
+}
 
- // Use existing HTML audio element for controls and audio source
- const audioElement = document.querySelector('audio') as HTMLAudioElement;
- audioElement.crossOrigin = 'anonymous';
- audioElement.loop = true;
- audioElement.volume = 0.5;
+// Create play/pause button
+const playButton = document.createElement('button');
+playButton.textContent = 'Play Music';
+playButton.style.padding = '8px 12px';
+playButton.style.backgroundColor = '#007bff';
+playButton.style.color = 'white';
+playButton.style.border = 'none';
+playButton.style.borderRadius = '4px';
+playButton.style.cursor = 'pointer';
+playButton.style.fontWeight = 'bold';
+playButton.style.fontSize = '14px';
+audioControlsContainer.appendChild(playButton);
+
+// Create volume slider
+const volumeSlider = document.createElement('input');
+volumeSlider.type = 'range';
+volumeSlider.min = '0';
+volumeSlider.max = '1';
+volumeSlider.step = '0.1';
+volumeSlider.value = '0.5';
+volumeSlider.style.width = '100px';
+// volumeSlider.style.accentColor = '#007bff'; // Removed to rely on CSS for thumb
+volumeSlider.style.cursor = 'pointer';
+volumeSlider.style.pointerEvents = 'auto';
+volumeSlider.id = 'volumeSlider'; // Add ID for CSS targeting
+// Explicitly apply styles for track and appearance from index.html
+volumeSlider.style.webkitAppearance = 'none';
+volumeSlider.style.appearance = 'none';
+volumeSlider.style.height = '8px';
+volumeSlider.style.borderRadius = '4px';
+volumeSlider.style.background = '#444'; // Track color
+volumeSlider.style.outline = 'none';
+
+// Create volume label
+const volumeLabel = document.createElement('span');
+volumeLabel.textContent = 'Volume: 50%';
+volumeLabel.style.color = 'white';
+volumeLabel.style.fontSize = '14px';
+volumeLabel.style.marginRight = '5px';
+
+// Add volume label and slider to container
+audioControlsContainer.appendChild(volumeLabel);
+audioControlsContainer.appendChild(volumeSlider);
+
+// Create HTML audio element for streaming
+const audioElement = document.createElement('audio');
+audioElement.style.display = 'none'; // Hide the audio element
+document.body.appendChild(audioElement);
+
+// URL of the stream
+const streamUrl = 'https://ice4.somafm.com/groovesalad-128-mp3';
+audioElement.src = streamUrl;
+audioElement.crossOrigin = 'anonymous';
+audioElement.preload = 'none'; // Don't preload until user clicks play
+
+// Connect the HTML audio element to Three.js audio system
+const sound = new THREE.Audio(listener);
 sound.setMediaElementSource(audioElement);
-sound.setVolume(0.5);
- audioElement.addEventListener('play', () => {
-     if (listener.context.state === 'suspended') listener.context.resume();
-     sound.play();
- });
+
+// Track playing state
+let isPlaying = false;
+
+// Add loading indicator CSS
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+
+// Play/pause button event listener
+playButton.addEventListener('click', function() {
+    if (listener.context.state === 'suspended') {
+        listener.context.resume();
+    }
+    
+    if (!isPlaying) {
+        // Show loading state
+        playButton.textContent = 'Loading...';
+        playButton.disabled = true;
+        playButton.style.backgroundColor = '#6c757d';
+        
+        // Add loading indicator
+        const loadingIndicator = document.createElement('span');
+        loadingIndicator.textContent = ' ⟳';
+        loadingIndicator.style.display = 'inline-block';
+        loadingIndicator.style.animation = 'spin 1s linear infinite';
+        playButton.appendChild(loadingIndicator);
+        
+        // Start loading the audio
+        audioElement.load();
+        
+        // Play when ready
+        audioElement.play().then(() => {
+            isPlaying = true;
+            playButton.textContent = 'Pause';
+            playButton.disabled = false;
+            playButton.style.backgroundColor = '#dc3545'; // Red for pause
+        }).catch(error => {
+            console.error('Error playing audio:', error);
+            playButton.textContent = 'Play Music';
+            playButton.disabled = false;
+            playButton.style.backgroundColor = '#007bff';
+        });
+    } else {
+        audioElement.pause();
+        isPlaying = false;
+        playButton.textContent = 'Play Music';
+        playButton.style.backgroundColor = '#007bff'; // Blue for play
+    }
+});
+
+// Volume slider event listener
+volumeSlider.addEventListener('input', function() {
+    const volume = parseFloat(volumeSlider.value);
+    audioElement.volume = volume;
+    volumeLabel.textContent = `Volume: ${Math.round(volume * 100)}%`;
+});
+
+// Prevent mousedown on slider from propagating to PointerLockControls
+volumeSlider.addEventListener('mousedown', function(event) {
+    event.stopPropagation();
+});
+
+// Handle audio loading events
+audioElement.addEventListener('waiting', () => {
+    playButton.textContent = 'Loading...';
+    playButton.disabled = true;
+    playButton.style.backgroundColor = '#6c757d';
+    
+    // Add loading indicator if not already present
+    if (!playButton.querySelector('span')) {
+        const loadingIndicator = document.createElement('span');
+        loadingIndicator.textContent = ' ⟳';
+        loadingIndicator.style.display = 'inline-block';
+        loadingIndicator.style.animation = 'spin 1s linear infinite';
+        playButton.appendChild(loadingIndicator);
+    }
+});
+
+audioElement.addEventListener('playing', () => {
+    playButton.textContent = 'Pause';
+    playButton.disabled = false;
+    playButton.style.backgroundColor = '#dc3545';
+});
+
+audioElement.addEventListener('error', (e) => {
+    console.error('Audio error:', e);
+    playButton.textContent = 'Error';
+    playButton.disabled = false;
+    playButton.style.backgroundColor = '#dc3545';
+});
 
 
 
@@ -218,6 +366,13 @@ document.addEventListener('pointerlockchange', () => {
     if (document.pointerLockElement === renderer.domElement) {
         renderer.domElement.focus();
         renderer.domElement.style.cursor = "none";
+        
+        // Ensure audio controls remain visible and interactive when pointer lock is active
+        if (audioControlsContainer) {
+            audioControlsContainer.style.display = 'flex';
+            audioControlsContainer.style.zIndex = '9999';
+            audioControlsContainer.style.pointerEvents = 'auto';
+        }
     } else {
         renderer.domElement.style.cursor = "auto";
         // Reset movement state when pointer is unlocked
@@ -232,12 +387,6 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape') renderer.domElement.style.cursor = 'auto';
 });
 
- // Click on audio element: resume context and start audio
- audioElement.addEventListener('click', (e) => {
-     e.stopPropagation();
-     if (listener.context.state === 'suspended') listener.context.resume();
-     sound.play();
- });
 
  // Click on canvas to lock pointer and resume audio context
  renderer.domElement.addEventListener('click', () => {
@@ -257,7 +406,7 @@ let sittingPosition = new THREE.Vector3();
 let sittingRotation = new THREE.Euler();
 let standingPosition = new THREE.Vector3();
 let standingHeight = 1.6; // Default standing height
-const proximityDistance = 2.25; // Increased from 2 to make detection easier
+const proximityDistance = 2.18; // Increased from 2 to make detection easier
 
 // Debug information
 console.log("Couch interaction system initialized");
@@ -508,7 +657,7 @@ staticModelUrls.forEach(url => {
       sphereHelper.position.y += 2; // Position above the object for visibility
       // Store reference to which object this helper belongs to
       sphereHelper.userData = { helperFor: modelScene.userData.type };
-      scene.add(sphereHelper);
+      //scene.add(sphereHelper);
       
       // Create sitting positions after all seatable objects are loaded
       createSittingPositions();
@@ -543,8 +692,8 @@ document.body.appendChild(interactionPrompt);
 // Create debug display for position information
 const debugDisplay = document.createElement('div');
 debugDisplay.style.position = 'absolute';
-debugDisplay.style.top = '10px';
-debugDisplay.style.left = '10px';
+debugDisplay.style.top = '74px';
+debugDisplay.style.left = '350px';
 debugDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
 debugDisplay.style.color = 'white';
 debugDisplay.style.padding = '10px';
@@ -556,7 +705,16 @@ debugDisplay.style.maxWidth = '300px';
 debugDisplay.style.overflow = 'hidden';
 debugDisplay.style.whiteSpace = 'pre-wrap';
 debugDisplay.style.zIndex = '1000';
+debugDisplay.style.display = 'none'; // Hide the debug display by default
 document.body.appendChild(debugDisplay);
+
+// Add debug display toggle functionality (press 'I' to toggle)
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyI') {
+    debugDisplay.style.display = debugDisplay.style.display === 'none' ? 'block' : 'none';
+    console.log(`Debug display ${debugDisplay.style.display === 'none' ? 'hidden' : 'shown'}`);
+  }
+});
 
 // Create a hint for the couch position tester
 const couchTesterHint = document.createElement('div');

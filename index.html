@@ -10,10 +10,72 @@
         margin: 0;
         overflow: hidden;
       }
+      
+      /* Fixed UI layer that's always visible */
+      #ui-layer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 9999;
+      }
+      
+      /* Audio controls container */
+      #audioControls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        pointer-events: auto;
+      }
+      
+      /* Volume slider specific styles */
+      #volumeSlider {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 8px;
+        border-radius: 4px;
+        background: #444;
+        outline: none;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        z-index: 10000 !important;
+      }
+      
+      #volumeSlider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #007bff;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+      }
+      
+      #volumeSlider::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #007bff;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+      }
     </style>
   </head>
   <body>
     <div id="app"></div>
+    <div id="ui-layer">
+      <!-- Audio controls will be added here by JavaScript -->
+      <div id="audioControls"></div>
+    </div>
     <audio id="audioPlayer" src=""></audio>
     <script type="module" src="/src/main.ts"></script>
   </body>
