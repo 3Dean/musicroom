@@ -37,7 +37,7 @@ import { addVaporToCoffee } from './addingVapor.js'; // Import the vapor functio
 //import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 //import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
-import { Audio as ThreeAudio } from 'three';
+// import { Audio as ThreeAudio } from 'three'; // Removed as ThreeAudio is not used
 import * as THREE from 'three';
 
 let pointLights: THREE.PointLight[] = [];
@@ -170,10 +170,10 @@ scene.add(dir);
     new THREE.Vector3(-1, 4, 0),     // Light 1
     new THREE.Vector3(1, 4, 2),     // Light 2
     //new THREE.Vector3(-6.7, 5, 3.17),    // Light 3
-    //new THREE.Vector3(-11, 5, 3.13)     // Light 4
+  //new THREE.Vector3(-11, 5, 3.13)     // Light 4
   ];
   
-  positions.forEach((pos, i) => {
+  positions.forEach((pos /*, i // Removed unused index 'i' */) => {
     const light = new THREE.PointLight(0xff00ff, 100, 40, 3);
     light.position.copy(pos);
     scene.add(light);
