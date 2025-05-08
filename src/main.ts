@@ -30,7 +30,6 @@ declare global {
     customLights?: THREE.PointLight[];
   }
 }
-import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 //import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
@@ -38,6 +37,7 @@ import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockCont
 //import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 
 import { Audio as ThreeAudio } from 'three';
+import * as THREE from 'three';
 
 let pointLights: THREE.PointLight[] = [];
 let hues: number[] = [];
@@ -59,6 +59,72 @@ renderer.domElement.style.outline = 'none';
 (window as any).scene = scene;
 (window as any).camera = camera;
 (window as any).renderer = renderer;
+// Make updateModelPosition available globally
+(window as any).updateModelPosition = (modelUrl: string, x: number, y: number, z: number) => {
+  updateModelPosition(modelUrl, new THREE.Vector3(x, y, z));
+};
+// Function to get current couch positions
+(window as any).getCouchPositions = () => {
+  const positions: {[key: string]: THREE.Vector3} = {};
+  scene.traverse((object) => {
+    if (object.userData && object.userData.type) {
+      const type = object.userData.type;
+      if (type === 'couch_left' || type === 'couch_right') {
+        const position = new THREE.Vector3();
+        object.getWorldPosition(position);
+        positions[type] = position;
+      }
+    }
+  });
+  console.log('Current couch positions:', positions);
+  return positions;
+};
+
+// Function to reset couch positions to default values
+(window as any).resetCouchPositions = () => {
+  updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 2, 0));
+  updateModelPosition('/models/couch_right.glb', new THREE.Vector3(5, 2, 0));
+  console.log('Couch positions reset to default values');
+};
+
+// Help function to explain available functions
+(window as any).couchHelp = () => {
+  console.log(`
+Available couch position functions:
+
+1. updateModelPosition(modelUrl, x, y, z)
+   - Updates the position of a model
+   - Example: updateModelPosition('/models/couch_left.glb', -3, 0, 3)
+
+2. getCouchPositions()
+   - Returns the current positions of all couches
+   - Example: getCouchPositions()
+
+3. resetCouchPositions()
+   - Resets all couch positions to their default values
+   - Example: resetCouchPositions()
+
+4. couchHelp()
+   - Displays this help message
+   - Example: couchHelp()
+`);
+};
+
+// Log a message to let users know about the help function
+console.log('Type "couchHelp()" in the console to see available couch position functions');
+
+// Function to open the couch position tester
+(window as any).openCouchTester = () => {
+  window.open('couch-position-tester.html', 'couchTester', 'width=850,height=700');
+};
+
+// Add keyboard shortcut to open couch position tester (press 'P')
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyP') {
+    (window as any).openCouchTester();
+    console.log('Couch position tester opened in a new window');
+  }
+});
 
 // Lights
 const hemi = new THREE.HemisphereLight(0xfff3e6, 0x444444, 1.2);
@@ -167,6 +233,19 @@ window.addEventListener('keydown', (e) => {
 // Navmesh collision collector
 const collidableMeshList: THREE.Mesh[] = [];
 
+// Couch interaction
+const couchObjects: THREE.Object3D[] = [];
+let nearCouch: THREE.Object3D | null = null;
+let isSitting = false;
+let sittingPosition = new THREE.Vector3();
+let sittingRotation = new THREE.Euler();
+let standingPosition = new THREE.Vector3();
+let standingHeight = 1.6; // Default standing height
+const proximityDistance = 2.25; // Increased from 2 to make detection easier
+
+// Debug information
+console.log("Couch interaction system initialized");
+
 // Preload emission textures
 const emitLoader = new THREE.TextureLoader();
 const EMIT_COUNT = 200;
@@ -233,8 +312,8 @@ const staticModelUrls = [
   '/models/cabinet_right.glb',
   '/models/chair.glb',
   '/models/coffee.glb',
-  '/models/couch_left.glb',
-  '/models/couch_right.glb',
+  '/models/couch_left.glb', // Will be tracked for sitting
+  '/models/couch_right.glb', // Will be tracked for sitting
   '/models/desk.glb',
   '/models/frames.glb',
   '/models/image01.glb',
@@ -261,10 +340,78 @@ let heldObject: THREE.Mesh | null = null;
 const raycaster = new THREE.Raycaster();
 const pickupDistance = 2;
 let hoveredObject: THREE.Mesh | null = null;
+
+// Define positions for couch models
+const modelPositions: { [key: string]: THREE.Vector3 } = {
+  '/models/couch_left.glb': new THREE.Vector3(-3.7, 0, .8),  // Adjust these values as needed
+  '/models/couch_right.glb': new THREE.Vector3(2.5, 0, .8)   // Adjust these values as needed
+};
+
+// Function to update model position
+function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
+  // Update the position in the modelPositions object
+  modelPositions[modelUrl] = position;
+  
+  // Find the model in the scene and update its position
+  scene.traverse((object) => {
+    if (object.userData && object.userData.type) {
+      const type = object.userData.type;
+      if ((type === 'couch_left' && modelUrl === '/models/couch_left.glb') || 
+          (type === 'couch_right' && modelUrl === '/models/couch_right.glb')) {
+        object.position.copy(position);
+        
+        // Update helper sphere position
+        const couchPosition = new THREE.Vector3();
+        object.getWorldPosition(couchPosition);
+        
+        // Find the helper sphere for this couch
+        scene.traverse((child) => {
+          if (child.userData && child.userData.helperFor === type) {
+            child.position.copy(couchPosition);
+            child.position.y += 2; // Position above the couch for visibility
+          }
+        });
+        
+        console.log(`Updated ${type} position to:`, couchPosition);
+      }
+    }
+  });
+}
+
+// Example usage:
+// updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 0, 3));
+
 staticModelUrls.forEach(url => {
   loader.load(url, (gltf: any) => {
     const modelScene = gltf.scene;
     scene.add(modelScene);
+    
+    // Set position for specific models if defined
+    if (modelPositions[url]) {
+      modelScene.position.copy(modelPositions[url]);
+    }
+    
+    // Track couch objects for sitting interaction
+    if (url === '/models/couch_left.glb' || url === '/models/couch_right.glb') {
+      couchObjects.push(modelScene);
+      modelScene.userData.type = url.includes('left') ? 'couch_left' : 'couch_right';
+      
+      // Log couch position for debugging
+      const couchPosition = new THREE.Vector3();
+      modelScene.getWorldPosition(couchPosition);
+      console.log(`Loaded ${modelScene.userData.type} at position:`, couchPosition);
+      
+      // Add a helper sphere to visualize the couch position
+      const sphereGeometry = new THREE.SphereGeometry(.2, 16, 16);
+      const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+      const sphereHelper = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      sphereHelper.position.copy(couchPosition);
+      sphereHelper.position.y += 2; // Position above the couch for visibility
+      // Store reference to which couch this helper belongs to
+      sphereHelper.userData = { helperFor: modelScene.userData.type };
+      scene.add(sphereHelper);
+    }
+    
     if (pickableUrls.includes(url)) {
       modelScene.traverse((child: THREE.Object3D) => {
         if ((child as THREE.Mesh).isMesh) {
@@ -274,6 +421,87 @@ staticModelUrls.forEach(url => {
     }
   });
 });
+
+// Create a prompt element for sitting interaction
+const interactionPrompt = document.createElement('div');
+interactionPrompt.style.position = 'absolute';
+interactionPrompt.style.top = '50%';
+interactionPrompt.style.left = '50%';
+interactionPrompt.style.transform = 'translate(-50%, -50%)';
+interactionPrompt.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+interactionPrompt.style.color = 'white';
+interactionPrompt.style.padding = '10px';
+interactionPrompt.style.borderRadius = '5px';
+interactionPrompt.style.fontFamily = 'Arial, sans-serif';
+interactionPrompt.style.fontSize = '16px';
+interactionPrompt.style.display = 'none';
+interactionPrompt.style.pointerEvents = 'none'; // Prevent interaction with the prompt
+document.body.appendChild(interactionPrompt);
+
+// Create debug display for position information
+const debugDisplay = document.createElement('div');
+debugDisplay.style.position = 'absolute';
+debugDisplay.style.top = '10px';
+debugDisplay.style.left = '10px';
+debugDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+debugDisplay.style.color = 'white';
+debugDisplay.style.padding = '10px';
+debugDisplay.style.borderRadius = '5px';
+debugDisplay.style.fontFamily = 'monospace';
+debugDisplay.style.fontSize = '12px';
+debugDisplay.style.pointerEvents = 'none'; // Prevent interaction with the debug display
+debugDisplay.style.maxWidth = '300px';
+debugDisplay.style.overflow = 'hidden';
+debugDisplay.style.whiteSpace = 'pre-wrap';
+debugDisplay.style.zIndex = '1000';
+document.body.appendChild(debugDisplay);
+
+// Create a hint for the couch position tester
+const couchTesterHint = document.createElement('div');
+couchTesterHint.style.position = 'absolute';
+couchTesterHint.style.bottom = '10px';
+couchTesterHint.style.right = '10px';
+couchTesterHint.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+couchTesterHint.style.color = 'white';
+couchTesterHint.style.padding = '10px';
+couchTesterHint.style.borderRadius = '5px';
+couchTesterHint.style.fontFamily = 'Arial, sans-serif';
+couchTesterHint.style.fontSize = '14px';
+couchTesterHint.style.pointerEvents = 'none'; // Prevent interaction with the hint
+couchTesterHint.style.zIndex = '1000';
+couchTesterHint.textContent = 'Press P to open couch position tester';
+document.body.appendChild(couchTesterHint);
+
+// Hide the hint after 10 seconds
+setTimeout(() => {
+  couchTesterHint.style.opacity = '0';
+  couchTesterHint.style.transition = 'opacity 1s ease-out';
+  
+  // Remove from DOM after fade out
+  setTimeout(() => {
+    couchTesterHint.remove();
+  }, 1000);
+}, 10000);
+
+// Function to update debug display
+function updateDebugDisplay() {
+  if (!debugDisplay) return;
+  
+  const playerPos = controls.object.position.clone();
+  let nearestCouchInfo = 'None';
+  
+  if (nearCouch) {
+    const couchPos = new THREE.Vector3();
+    nearCouch.getWorldPosition(couchPos);
+    const distance = playerPos.distanceTo(couchPos);
+    nearestCouchInfo = `${nearCouch.userData.type}\nPosition: ${couchPos.x.toFixed(2)}, ${couchPos.y.toFixed(2)}, ${couchPos.z.toFixed(2)}\nDistance: ${distance.toFixed(2)}`;
+  }
+  
+  debugDisplay.textContent = 
+`Player Position: ${playerPos.x.toFixed(2)}, ${playerPos.y.toFixed(2)}, ${playerPos.z.toFixed(2)}
+Sitting: ${isSitting ? 'Yes' : 'No'}
+Nearest Couch: ${nearestCouchInfo}`;
+}
 
 // TV screen with looping video texture
 const video = document.createElement('video');
@@ -331,16 +559,81 @@ const clock = new THREE.Clock();
 
  // WASD movement + collision (global listener for key events)
  window.addEventListener('keydown', (e) => {
-   if (e.code === 'KeyW') moveState.forward = true;
-   if (e.code === 'KeyS') moveState.backward = true;
-   if (e.code === 'KeyA') moveState.left = true;
-   if (e.code === 'KeyD') moveState.right = true;
+   // Handle sitting/standing with E and W keys
+   if (e.code === 'KeyE' && nearCouch && !isSitting) {
+     // Sit on the couch
+     isSitting = true;
+     standingPosition.copy(controls.object.position);
+     
+     // Determine sitting position based on couch type
+     const couchType = nearCouch.userData.type;
+     const couchPosition = new THREE.Vector3();
+     nearCouch.getWorldPosition(couchPosition);
+     
+     // Set position based on couch type
+     if (couchType === 'couch_left') {
+       // Adjust these offsets as needed based on the new couch position
+       sittingPosition.set(couchPosition.x - 0.2, couchPosition.y + 1.5, couchPosition.z + 0.2);
+       console.log(`Sitting on couch_left at position:`, sittingPosition);
+     } else { // couch_right
+       // Adjust these offsets as needed based on the new couch position
+       sittingPosition.set(couchPosition.x + 0.2, couchPosition.y + 1.5, couchPosition.z + 0.2);
+       console.log(`Sitting on couch_right at position:`, sittingPosition);
+     }
+     
+     // Calculate rotation to face the center of the room (0,0,0)
+     const centerPoint = new THREE.Vector3(0, sittingPosition.y, 0); // Keep the same y-height
+     const direction = new THREE.Vector3().subVectors(centerPoint, sittingPosition).normalize();
+     
+     // Calculate the angle to the center point
+     // Math.atan2 takes (y, x) but we're working in the x-z plane for rotation around y-axis
+     // Adding Math.PI (180 degrees) to flip the direction
+     const angle = Math.atan2(direction.x, direction.z) + Math.PI;
+     sittingRotation.set(0, angle, 0);
+     
+     console.log(`Calculated rotation to face center: ${angle.toFixed(2)} radians`);
+     
+     // Log the player's current position for debugging
+     console.log(`Player position before sitting:`, controls.object.position);
+     
+     // Apply position and rotation
+     controls.object.position.copy(sittingPosition);
+     camera.rotation.copy(sittingRotation);
+     
+     // Disable movement while sitting
+     moveState.forward = false;
+     moveState.backward = false;
+     moveState.left = false;
+     moveState.right = false;
+     
+     // Update prompt
+     interactionPrompt.textContent = 'Press W to stand';
+     return;
+   }
+   
+   if (e.code === 'KeyW' && isSitting) {
+     // Stand up from the couch
+     isSitting = false;
+     controls.object.position.copy(standingPosition);
+     interactionPrompt.style.display = 'none';
+   }
+   
+   // Only allow movement if not sitting
+   if (!isSitting) {
+     if (e.code === 'KeyW') moveState.forward = true;
+     if (e.code === 'KeyS') moveState.backward = true;
+     if (e.code === 'KeyA') moveState.left = true;
+     if (e.code === 'KeyD') moveState.right = true;
+   }
  });
+ 
  window.addEventListener('keyup', (e) => {
-   if (e.code === 'KeyW') moveState.forward = false;
-   if (e.code === 'KeyS') moveState.backward = false;
-   if (e.code === 'KeyA') moveState.left = false;
-   if (e.code === 'KeyD') moveState.right = false;
+   if (!isSitting) {
+     if (e.code === 'KeyW') moveState.forward = false;
+     if (e.code === 'KeyS') moveState.backward = false;
+     if (e.code === 'KeyA') moveState.left = false;
+     if (e.code === 'KeyD') moveState.right = false;
+   }
  });
 
 // Handle resize
@@ -425,7 +718,7 @@ function animate() {
   }
 
   // Movement & collision
-  if (collidableMeshList.length > 0) {
+  if (collidableMeshList.length > 0 && !isSitting) {
     const delta = clock.getDelta();
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
@@ -447,12 +740,42 @@ function animate() {
     const downRay = new THREE.Raycaster(rayOrigin, new THREE.Vector3(0, -1, 0));
     const hits = downRay.intersectObjects(collidableMeshList);
     if (hits.length > 0) {
-      controls.object.position.y = hits[0].point.y + 1.6;
+      controls.object.position.y = hits[0].point.y + standingHeight;
     } else {
       controls.object.position.copy(oldPos);
     }
+    
+    // Check for proximity to couches
+    let isNearAnyCouches = false;
+    if (couchObjects.length > 0) {
+      const playerPosition = controls.object.position.clone();
+      
+      for (const couch of couchObjects) {
+        const couchPosition = new THREE.Vector3();
+        couch.getWorldPosition(couchPosition);
+        
+        const distance = playerPosition.distanceTo(couchPosition);
+        if (distance < proximityDistance) { // Use the increased proximity distance
+          isNearAnyCouches = true;
+          nearCouch = couch;
+          
+          // Show interaction prompt
+          interactionPrompt.textContent = 'Press E to sit';
+          interactionPrompt.style.display = 'block';
+          break;
+        }
+      }
+      
+      if (!isNearAnyCouches) {
+        nearCouch = null;
+        interactionPrompt.style.display = 'none';
+      }
+    }
   }
 
+  // Update debug display
+  updateDebugDisplay();
+  
   renderer.render(scene, camera);
 }
 

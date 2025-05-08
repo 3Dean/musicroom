@@ -2,28 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/note.svg" />
+    <link rel="icon" href="./public/note.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MusicRoom</title>
+    <title>Vapor</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+    </style>
   </head>
   <body>
-    <div id="crosshair"></div>
     <div id="app"></div>
-    <audio
-      controls
-      autoplay
-      crossorigin="anonymous"
-      style="
-        position: fixed;
-        top: 5px;
-        left: 10px;
-        bottom: 10px;
-        z-index: 1000;
-        background-color: #010101;
-      "
-      src="https://ice4.somafm.com/groovesalad-128-mp3"
-    ></audio>
+    <audio id="audioPlayer" src=""></audio>
     <script type="module" src="/src/main.ts"></script>
-    <script type="module" src="/addingVapor.js"></script>
   </body>
 </html>
