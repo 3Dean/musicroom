@@ -49,7 +49,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x888888);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(-0.84, 1.64, 0.45); // Set initial camera position
+camera.position.set(-1.84, 1.64, 3.45); // Set initial camera position
+camera.rotation.y = Math.PI / 2;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1058,6 +1059,30 @@ function animate() {
   // Update vapor animation
   if (vaporEffectMaterial) {
     vaporEffectMaterial.uniforms.time.value += 0.005; // Adjust speed as needed
+  }
+  // Log all object names
+  scene.traverse((object) => {
+    console.log('Object name:', object.name);
+  });
+
+  // Animate plantleaves
+  const plantLeavesL = scene.getObjectByName('pantleaves_L');
+  const plantLeavesR = scene.getObjectByName('plantleaves_R');
+  if (plantLeavesL) {
+    console.log('pantleaves_L found');
+    plantLeavesL.rotation.y += 0.01 + Math.random() * 0.005;
+    plantLeavesL.rotation.x += Math.random() * 0.002 - 0.001;
+    plantLeavesL.rotation.z += Math.random() * 0.002 - 0.001;
+  } else {
+    console.log('pantleaves_L not found');
+  }
+  if (plantLeavesR) {
+    console.log('plantleaves_R found');
+    plantLeavesR.rotation.y += 0.01 + Math.random() * 0.005;
+    plantLeavesR.rotation.x += Math.random() * 0.002 - 0.001;
+    plantLeavesR.rotation.z += Math.random() * 0.002 - 0.001;
+  } else {
+    console.log('plantleaves_R not found');
   }
   
   renderer.render(scene, camera);
