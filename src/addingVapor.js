@@ -1,13 +1,12 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-const gltfLoader = new GLTFLoader();
-const scene = window.scene;
-const camera = window.camera;
-const renderer = window.renderer;
+// GLTFLoader will be passed from main.ts, so we don't need to import it here if main.ts already does.
+// However, if we want this module to be self-contained in terms of its own GLTF loading logic (even if it uses the loader instance from main),
+// it's good practice to declare its dependencies. For now, we'll assume gltfLoader is passed.
 
-// --- Load your sprite sheet texture ---
-const texture = new THREE.TextureLoader().load('/images/vaporsprite4x4.png');
-texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+// --- Sprite sheet texture ---
+const textureLoader = new THREE.TextureLoader();
+const vaporTexture = textureLoader.load('/images/vaporsprite4x4.png'); // Ensure this path is correct from project root
+vaporTexture.wrapS = vaporTexture.wrapT = THREE.RepeatWrapping;
 
 // --- Set the number of frames ---
 const tilesHoriz = 2; // Number of columns in sprite sheet (quadrants)
@@ -15,28 +14,28 @@ const tilesVert = 2;  // Number of rows
 const totalFrames = 4; // Only 4 quadrant frames
 
 // --- Particle geometry ---
-const geometry = new THREE.BufferGeometry();
-const count = 2;
+const vaporGeometry = new THREE.BufferGeometry();
+const count = 3; // Number of vapor particles
 
 const positions = new Float32Array(count * 3);
 const offsets = new Float32Array(count);
 
-    for (let i = 0; i < count; i++) {
-      // Single particle at model center, random frame start
-      positions.set([0, 0, 0], i * 3);
-      offsets[i] = Math.random() * totalFrames;
-    }
+for (let i = 0; i < count; i++) {
+  // Single particle at model center, random frame start
+  positions.set([0, 0, 0], i * 3); // Position will be relative to the Points object
+  offsets[i] = Math.random() * totalFrames;
+}
 
-geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-geometry.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
+vaporGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+vaporGeometry.setAttribute('offset', new THREE.BufferAttribute(offsets, 1));
 
 // --- Shader material ---
-const material = new THREE.ShaderMaterial({
+const vaporMaterial = new THREE.ShaderMaterial({
   transparent: true,
   depthWrite: false,
   blending: THREE.AdditiveBlending,
   uniforms: {
-    map: { value: texture },
+    map: { value: vaporTexture },
     time: { value: 0 },
     tilesHoriz: { value: tilesHoriz },
     tilesVert: { value: tilesVert },
@@ -55,7 +54,7 @@ const material = new THREE.ShaderMaterial({
     void main() {
       // Calculate current integer frame index (no scrolling)
       float frame = floor(offset);
-      vPhase = fract(time + offset);
+      vPhase = fract(time + offset); // vPhase will go from 0 to 1 repeatedly
       float col = mod(frame, tilesHoriz);
       float row = floor(frame / tilesHoriz);
 
@@ -64,9 +63,9 @@ const material = new THREE.ShaderMaterial({
       vFrameOffset = vec2(col * vFrameScale.x, (tilesVert - row - 1.0) * vFrameScale.y);
 
       // apply slight upward motion based on fade phase
-      vec3 moved = position + vec3(0.0, vPhase * 0.2, 0.0);
+      vec3 moved = position + vec3(0.0, vPhase * 0.15, 0.0); // Particle moves up slightly as it animates
       vec4 mvPosition = modelViewMatrix * vec4(moved, 1.0);
-gl_PointSize = 256.0 / -mvPosition.z;
+      gl_PointSize = 256.0 / -mvPosition.z; // Adjust size based on distance
       gl_Position = projectionMatrix * mvPosition;
     }
   `,
@@ -80,36 +79,46 @@ gl_PointSize = 256.0 / -mvPosition.z;
       // Compute UV within the sprite tile
       vec2 uv = gl_PointCoord * vFrameScale + vFrameOffset;
       vec4 texColor = texture2D(map, uv);
-      // apply fade in/out alpha
+      
+      // apply fade in/out alpha based on vPhase
+      // Fades in for the first half of the phase, fades out for the second half
       float alpha = vPhase < 0.5 ? (vPhase * 2.0) : ((1.0 - vPhase) * 2.0);
       texColor.a *= alpha;
-      if (texColor.a < 0.01) discard;
+
+      if (texColor.a < 0.01) discard; // Discard transparent pixels
       gl_FragColor = texColor;
     }
   `,
 });
 
- // --- Points ---
- // Load coffee model and add vapor emitter to it
- gltfLoader.load('/models/coffee.glb', (gltf) => {
-   const coffee = gltf.scene;
-   scene.add(coffee);
-   // Compute bounding box for positioning emitter
-   const box = new THREE.Box3().setFromObject(coffee);
-   const center = box.getCenter(new THREE.Vector3());
-   const maxY = box.max.y;
-   // Create vapor emitter points
-   const vapor = new THREE.Points(geometry, material);
-   vapor.position.set(center.x, maxY + 0.1, center.z);
-   scene.add(vapor);
- });
+export function addVaporToCoffee(scene, gltfLoader) {
+  // Load coffee model and add vapor emitter to it
+  gltfLoader.load('/models/coffee.glb', (gltf) => { // Ensure this path is correct
+    const coffeeModel = gltf.scene;
+    // Optional: adjust coffee model position/scale if needed
+    // coffeeModel.position.set(x, y, z);
+    scene.add(coffeeModel);
 
-// --- Animate ---
-function animate() {
-  requestAnimationFrame(animate);
-  
-  material.uniforms.time.value += 0.005; // Advance through 4-frame animation
-  renderer.render(scene, camera);
+    // Compute bounding box for positioning emitter on top of the coffee
+    const box = new THREE.Box3().setFromObject(coffeeModel);
+    const center = box.getCenter(new THREE.Vector3());
+    const maxY = box.max.y;
+
+    // Create vapor emitter points
+    const vaporParticles = new THREE.Points(vaporGeometry, vaporMaterial);
+    // Position the vapor slightly above the coffee model's highest point
+    vaporParticles.position.set(center.x, maxY + 0.05, center.z); // Adjust Y offset as needed
+    
+    scene.add(vaporParticles);
+    console.log('Coffee model and vapor effect added to the scene.');
+  },
+  undefined, // onProgress callback (optional)
+  (error) => {
+    console.error('An error happened while loading the coffee model for vapor:', error);
+  });
+
+  return vaporMaterial; // Return material to be updated in the main animation loop
 }
 
-animate();
+// Removed self-contained animate() function and direct renderer.render calls
+// Removed direct access to window.scene, window.camera, window.renderer

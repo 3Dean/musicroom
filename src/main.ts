@@ -32,6 +32,7 @@ declare global {
 }
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
+import { addVaporToCoffee } from './addingVapor.js'; // Import the vapor function
 //import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 //import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 //import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
@@ -48,7 +49,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x888888);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(-1, 1.6, 2.5);
+camera.position.set(-0.84, 1.64, 0.45); // Set initial camera position
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -428,6 +429,9 @@ for (let i = 0; i < EMIT_COUNT; i++) {
 // GLTF Loader
 const loader = new GLTFLoader();
 
+// Vapor effect material
+let vaporEffectMaterial: THREE.ShaderMaterial | null = null;
+
 // Store mixing-board meshes for animation
 const mixingBoardMeshes: THREE.Mesh[] = [];
 
@@ -476,7 +480,7 @@ const staticModelUrls = [
   '/models/cabinet_left.glb',
   '/models/cabinet_right.glb',
   '/models/chair.glb',
-  '/models/coffee.glb',
+  // '/models/coffee.glb', // Coffee model will be loaded by addVaporToCoffee
   '/models/couch_left.glb', // Will be tracked for sitting
   '/models/couch_right.glb', // Will be tracked for sitting
   '/models/desk.glb',
@@ -672,6 +676,9 @@ staticModelUrls.forEach(url => {
     }
   });
 });
+
+// Initialize vapor effect
+vaporEffectMaterial = addVaporToCoffee(scene, loader);
 
 // Create a prompt element for sitting interaction
 const interactionPrompt = document.createElement('div');
@@ -871,6 +878,12 @@ const clock = new THREE.Clock();
      isSitting = false;
      controls.object.position.copy(standingPosition);
      interactionPrompt.style.display = 'none';
+     
+     // Reset movement state and velocity to prevent immediate forward launch
+     moveState.forward = false; 
+     velocity.x = 0;
+     velocity.z = 0;
+     return; // Prevent further processing of 'W' key in this event
    }
    
    // Only allow movement if not sitting
@@ -1039,6 +1052,11 @@ function animate() {
 
   // Update debug display
   updateDebugDisplay();
+
+  // Update vapor animation
+  if (vaporEffectMaterial) {
+    vaporEffectMaterial.uniforms.time.value += 0.005; // Adjust speed as needed
+  }
   
   renderer.render(scene, camera);
 }
