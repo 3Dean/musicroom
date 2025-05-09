@@ -33,6 +33,7 @@ declare global {
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
 import { addVaporToCoffee } from './addingVapor.js'; // Import the vapor function
+import { animateFlowers, initializeWindEffectOnModel } from './wind'; // Import wind animation
 //import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 //import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 //import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
@@ -490,17 +491,20 @@ const staticModelUrls = [
   '/models/image03.glb',
   '/models/image04.glb',
   '/models/leakstereo.glb',
-  '/models/plants.glb',
+  //'/models/plants.glb',
   '/models/soundboard.glb',
   '/models/speakers.glb',
-  //'/models/structure.glb',
   '/models/vinylrecord.glb',
   '/models/sphereenv.glb',
   '/models/structure_floor.glb',
   '/models/structure_wall001.glb',
   '/models/structure_wall002.glb',
   '/models/structure_wall003.glb',
-  '/models/rug.glb'
+  '/models/rug.glb',
+  '/models/plantstand_l.glb',
+  '/models/plantstand_r.glb',
+  '/models/plantleaves_l.glb', // Will be animated by wind
+  '/models/plantleaves_r.glb'  // Will be animated by wind
 ];
 
 const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
@@ -629,6 +633,14 @@ staticModelUrls.forEach(url => {
   loader.load(url, (gltf: any) => {
     const modelScene = gltf.scene;
     scene.add(modelScene);
+
+    // Initialize wind effect for plant leaves
+    if (url === '/models/plantleaves_l.glb') {
+      initializeWindEffectOnModel(modelScene, 'plantleaves_l');
+    }
+    if (url === '/models/plantleaves_r.glb') {
+      initializeWindEffectOnModel(modelScene, 'plantleaves_r');
+    }
     
     // Set position for specific models if defined
     if (modelPositions[url]) {
@@ -1057,6 +1069,9 @@ function animate() {
   if (vaporEffectMaterial) {
     vaporEffectMaterial.uniforms.time.value += 0.005; // Adjust speed as needed
   }
+
+  // Animate flowers/plants
+  animateFlowers(performance.now());
   
   renderer.render(scene, camera);
 }
