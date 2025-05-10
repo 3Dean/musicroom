@@ -24,6 +24,50 @@
 } */
 import './style.css';
 
+// --- LOADING SCREEN LOGIC START ---
+const loadingPercentageElement = document.getElementById('loading-percentage') as HTMLElement | null;
+const loadingProgressBarElement = document.getElementById('loading-progress-bar') as HTMLElement | null;
+const kilobytesLoadedElement = document.getElementById('kilobytes-loaded') as HTMLElement | null;
+const loadingScreenElement = document.getElementById('loading-screen') as HTMLElement | null;
+
+const totalKilobytesToLoad = 2048; // Simulate loading 2MB (adjust as needed)
+let loadedKilobytes = 0;
+const loadIncrement = 50; // Load 50KB at a time
+const intervalTime = 100; // Update every 100ms
+let loadingInterval: number;
+
+function updateLoader() {
+    loadedKilobytes += loadIncrement;
+    if (loadedKilobytes > totalKilobytesToLoad) {
+        loadedKilobytes = totalKilobytesToLoad;
+    }
+
+    const percentage = Math.round((loadedKilobytes / totalKilobytesToLoad) * 100);
+
+    if (loadingPercentageElement) loadingPercentageElement.textContent = `${percentage}%`;
+    if (loadingProgressBarElement) loadingProgressBarElement.style.width = `${percentage}%`;
+    if (kilobytesLoadedElement) kilobytesLoadedElement.textContent = `${loadedKilobytes} / ${totalKilobytesToLoad} KB`;
+
+    if (loadedKilobytes >= totalKilobytesToLoad) {
+        clearInterval(loadingInterval);
+        setTimeout(() => {
+            if (loadingScreenElement) loadingScreenElement.style.display = 'none';
+            console.log('Loading complete! Initializing application...');
+            initializeApp(); // Initialize the main application
+        }, 500);
+    }
+}
+
+// Start loading simulation if all elements are present
+if (loadingPercentageElement && loadingProgressBarElement && kilobytesLoadedElement && loadingScreenElement) {
+    loadingInterval = setInterval(updateLoader, intervalTime);
+} else {
+    console.error('One or more loading screen elements not found. Skipping loading screen.');
+    if (loadingScreenElement) loadingScreenElement.style.display = 'none'; // Hide if partially found
+    initializeApp(); // Initialize the main application directly
+}
+// --- LOADING SCREEN LOGIC END ---
+
 // Extend the Window interface to include customLights
 declare global {
   interface Window {
@@ -41,6 +85,7 @@ import { animateFlowers, initializeWindEffectOnModel } from './wind'; // Import 
 // import { Audio as ThreeAudio } from 'three'; // Removed as ThreeAudio is not used
 import * as THREE from 'three';
 
+function initializeApp() {
 let pointLights: THREE.PointLight[] = [];
 let hues: number[] = [];
 let lightHelpers: THREE.Object3D[] = []; // Store light helpers
@@ -68,7 +113,7 @@ renderer.domElement.style.outline = 'none';
 // Function to get current seatable object positions
 (window as any).getSeatingPositions = () => {
   const positions: {[key: string]: THREE.Vector3} = {};
-  scene.traverse((object) => {
+  scene.traverse((object: THREE.Object3D) => { // Added type
     if (object.userData && object.userData.type) {
       const type = object.userData.type;
       if (type === 'couch_left' || type === 'couch_right' || type === 'chair') {
@@ -594,7 +639,7 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
   modelPositions[modelUrl] = position;
   
   // Find the model in the scene and update its position
-  scene.traverse((object) => {
+  scene.traverse((object: THREE.Object3D) => { // Added type
     if (object.userData && object.userData.type) {
       const type = object.userData.type;
       if ((type === 'couch_left' && modelUrl === '/models/couch_left.glb') || 
@@ -607,7 +652,7 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
         object.getWorldPosition(objectPosition);
         
         // Find the helper sphere for this object
-        scene.traverse((child) => {
+        scene.traverse((child: THREE.Object3D) => { // Added type
           if (child.userData && child.userData.helperFor === type) {
             child.position.copy(objectPosition);
             child.position.y += 2; // Position above the object for visibility
@@ -936,7 +981,7 @@ function animate() {
   
   // Update custom cycling lights
   if (window.customLights && window.customLights.length > 0) {
-    window.customLights.forEach(light => {
+    window.customLights.forEach((light: THREE.PointLight) => { // Added type
       if (light.userData) {
         light.userData.hue += light.userData.cycleSpeed || 0.001;
         if (light.userData.hue > 1) light.userData.hue = 0;
@@ -1041,7 +1086,7 @@ function animate() {
           
           // Find the associated couch for reference
           const couchType = sitPos.userData.forCouch;
-          scene.traverse((object) => {
+          scene.traverse((object: THREE.Object3D) => { // Added type
             if (object.userData && object.userData.type === couchType) {
               nearCouch = object;
             }
@@ -1077,3 +1122,4 @@ function animate() {
 }
 
 animate();
+} // End of initializeApp function

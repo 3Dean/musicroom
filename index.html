@@ -5,6 +5,7 @@
     <link rel="icon" href="./public/note.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vapor</title>
+    <link rel="stylesheet" href="src/loading.css">
     <style>
       body {
         margin: 0;
@@ -71,6 +72,16 @@
     </style>
   </head>
   <body>
+    <div id="loading-screen">
+        <div id="loading-box">
+            <div id="loading-text">LOADING</div>
+            <div id="loading-percentage">0%</div>
+            <div id="loading-progress-bar-container">
+                <div id="loading-progress-bar"></div>
+            </div>
+            <div id="kilobytes-loaded">0 / 0 KB</div>
+        </div>
+    </div>
     <div id="app"></div>
     <div id="ui-layer">
       <!-- Audio controls will be added here by JavaScript -->
