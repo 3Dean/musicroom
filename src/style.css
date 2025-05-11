@@ -118,3 +118,48 @@ button:focus-visible {
   display: flex !important;
   pointer-events: auto !important;
 }
+
+/* Mobile/Tactile Controls */
+@media (pointer: coarse) {
+  #audioControls {
+    bottom: 20px !important;
+    top: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    flex-direction: row !important;
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    padding: 1rem !important;
+    border-radius: 1rem !important;
+    gap: 1rem !important;
+  }
+  #audioControls button {
+    padding: 1rem 1.5rem !important;
+    font-size: 1.2rem !important;
+  }
+  #audioControls input[type="range"] {
+    width: 150px !important;
+    height: 12px !important;
+  }
+}
+
+/* Desktop/Mouse Controls */
+@media (pointer: fine) {
+  #audioControls {
+    top: 10px !important;
+    bottom: auto !important;
+    left: 10px !important;
+    transform: none !important;
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    padding: 10px !important;
+    border-radius: 5px !important;
+    gap: 10px !important;
+  }
+  #audioControls button {
+    padding: 0.6em 1.2em !important;
+    font-size: 1em !important;
+  }
+  #audioControls input[type="range"] {
+    width: 100px !important;
+    height: 8px !important;
+  }
+}

@@ -30,10 +30,10 @@ const loadingProgressBarElement = document.getElementById('loading-progress-bar'
 const kilobytesLoadedElement = document.getElementById('kilobytes-loaded') as HTMLElement | null;
 const loadingScreenElement = document.getElementById('loading-screen') as HTMLElement | null;
 
-const totalKilobytesToLoad = 2048; // Simulate loading 2MB (adjust as needed)
+const totalKilobytesToLoad = 1264; // Simulate loading 43.5MB (adjust as needed)
 let loadedKilobytes = 0;
-const loadIncrement = 50; // Load 50KB at a time
-const intervalTime = 100; // Update every 100ms
+const loadIncrement = 500; // Load 50KB at a time
+const intervalTime = 50; // Update every 100ms
 let loadingInterval: number;
 
 function updateLoader() {
@@ -63,8 +63,8 @@ if (loadingPercentageElement && loadingProgressBarElement && kilobytesLoadedElem
     loadingInterval = setInterval(updateLoader, intervalTime);
 } else {
     console.error('One or more loading screen elements not found. Skipping loading screen.');
-    if (loadingScreenElement) loadingScreenElement.style.display = 'none'; // Hide if partially found
-    initializeApp(); // Initialize the main application directly
+    if (loadingScreenElement) loadingScreenElement.style.display = 'none';
+    initializeApp();
 }
 // --- LOADING SCREEN LOGIC END ---
 
@@ -76,6 +76,7 @@ declare global {
 }
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls';
+let controls: any;
 import { addVaporToCoffee } from './addingVapor.js'; // Import the vapor function
 import { animateFlowers, initializeWindEffectOnModel } from './wind'; // Import wind animation
 //import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
@@ -85,7 +86,32 @@ import { animateFlowers, initializeWindEffectOnModel } from './wind'; // Import 
 // import { Audio as ThreeAudio } from 'three'; // Removed as ThreeAudio is not used
 import * as THREE from 'three';
 
+// --- TOUCH CONTROL VARIABLES ---
+const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+document.body.classList.add(isTouchDevice ? 'touch' : 'mouse');
+let touchLookStartX = 0;
+let touchLookStartY = 0;
+let touchLookPreviousX = 0;
+let touchLookPreviousY = 0;
+let lookingTouchId: number | null = null;
+const lookSensitivity = 0.002; // Adjust as needed
+
+let touchMoveStartX = 0;
+let touchMoveStartY = 0;
+let movingTouchId: number | null = null;
+const touchMoveThreshold = 20; // Min pixels to drag before movement starts
+const touchMoveSensitivity = 0.05; // Adjust how much drag translates to movement strength
+
+// --- END TOUCH CONTROL VARIABLES ---
+
+// For desktop click-and-drag view
+let isDraggingView = false;
+let previousMouseX = 0;
+let previousMouseY = 0;
+
 function initializeApp() {
+  console.log(`isTouchDevice: ${isTouchDevice}`); // Diagnostic log
+
 let pointLights: THREE.PointLight[] = [];
 let hues: number[] = [];
 let lightHelpers: THREE.Object3D[] = []; // Store light helpers
@@ -358,12 +384,44 @@ playButton.addEventListener('click', function() {
     }
 });
 
-// Volume slider event listener
+// Volume slider event listener - using 'input' for continuous update
 volumeSlider.addEventListener('input', function() {
+    if (listener.context.state === 'suspended') {
+        listener.context.resume().then(() => {
+            console.log('AudioContext resumed on volume input.');
+        }).catch(e => console.error('Error resuming AudioContext on volume input:', e));
+    }
+
+    // On mobile, if audio is paused but playback is intended, try to play again.
+    if (isTouchDevice && audioElement.paused && isPlaying) {
+        audioElement.play().then(() => {
+            console.log('Audio re-played on volume input (mobile).');
+        }).catch(e => console.error('Error re-playing audio on volume input (mobile):', e));
+    }
+
     const volume = parseFloat(volumeSlider.value);
     audioElement.volume = volume;
     volumeLabel.textContent = `Volume: ${Math.round(volume * 100)}%`;
+    console.log('Volume set by input event to:', audioElement.volume);
 });
+
+// For touch devices, also try to resume context and play on touchstart of the slider
+if (isTouchDevice) {
+    volumeSlider.addEventListener('touchstart', function() {
+        console.log('Volume slider touchstart (mobile)');
+        if (listener.context.state === 'suspended') {
+            listener.context.resume().then(() => {
+                console.log('AudioContext resumed on volume touchstart (mobile).');
+            }).catch(e => console.error('Error resuming context on volume touchstart (mobile):', e));
+        }
+        // If playback is intended but audio is paused, try to play.
+        if (audioElement.paused && isPlaying) {
+            audioElement.play().then(() => {
+                console.log('Audio played on volume touchstart (mobile).');
+            }).catch(e => console.error('Error playing audio on volume touchstart (mobile):', e));
+        }
+    }, { passive: true }); // Use passive listener as we are not calling preventDefault
+}
 
 // Prevent mousedown on slider from propagating to PointerLockControls
 volumeSlider.addEventListener('mousedown', function(event) {
@@ -405,11 +463,19 @@ audioElement.addEventListener('error', (e) => {
 
 
 // Controls
-const controls = new PointerLockControls(camera, renderer.domElement);
+controls = new PointerLockControls(camera, renderer.domElement);
+// PointerLockControls calls .connect() in its constructor.
+
+// Set rotation order for more intuitive FPS controls
+camera.rotation.order = 'YXZ';
+controls.object.rotation.order = 'YXZ';
+
 scene.add(controls.object);
 
 // Ensure renderer canvas regains focus when pointer lock is active
 document.addEventListener('pointerlockchange', () => {
+    // This listener is for UI changes (cursor, focus) based on lock state.
+    // PointerLockControls has its own internal listener for setting its .isLocked state.
     if (document.pointerLockElement === renderer.domElement) {
         renderer.domElement.focus();
         renderer.domElement.style.cursor = "none";
@@ -435,10 +501,136 @@ window.addEventListener('keydown', (e) => {
 });
 
 
- // Click on canvas to lock pointer and resume audio context
+ // Click on canvas to resume audio context (and start drag for desktop)
  renderer.domElement.addEventListener('click', () => {
-     controls.lock();
+    // For non-touch devices, pointer lock is removed. Click-and-drag will handle view.
+    // For touch devices, this click listener might not be relevant if touch events are primary.
  });
+
+ if (isTouchDevice) {
+    controls.disconnect(); // Disconnect PointerLockControls' own event listeners for mouse/pointerlock
+    console.log("Touch device detected. Disconnected PointerLockControls listeners and initializing touch controls.");
+    
+    // Add custom touch listeners
+    renderer.domElement.addEventListener('touchstart', (event: TouchEvent) => {
+        // event.preventDefault(); 
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            const touch = event.changedTouches[i];
+            if (touch.clientX < window.innerWidth / 2 && movingTouchId === null) { // Left half for movement
+                movingTouchId = touch.identifier;
+                touchMoveStartX = touch.clientX;
+                touchMoveStartY = touch.clientY;
+            } else if (touch.clientX >= window.innerWidth / 2 && lookingTouchId === null) { // Right half for looking
+                lookingTouchId = touch.identifier;
+                touchLookStartX = touch.clientX;
+                touchLookStartY = touch.clientY;
+                touchLookPreviousX = touch.clientX;
+                touchLookPreviousY = touch.clientY;
+            }
+        }
+    });
+
+    renderer.domElement.addEventListener('touchmove', (event: TouchEvent) => {
+        // event.preventDefault();
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            const touch = event.changedTouches[i];
+            if (touch.identifier === movingTouchId) {
+                const deltaX = touch.clientX - touchMoveStartX;
+                const deltaY = touch.clientY - touchMoveStartY;
+
+                // Forward/Backward (based on vertical drag)
+                if (Math.abs(deltaY) > touchMoveThreshold) {
+                    if (deltaY < -touchMoveThreshold) moveState.forward = true; else moveState.forward = false;
+                    if (deltaY > touchMoveThreshold) moveState.backward = true; else moveState.backward = false;
+                } else {
+                    moveState.forward = false;
+                    moveState.backward = false;
+                }
+
+                // Left/Right strafe (based on horizontal drag)
+                if (Math.abs(deltaX) > touchMoveThreshold) {
+                    if (deltaX < -touchMoveThreshold) moveState.left = true; else moveState.left = false;
+                    if (deltaX > touchMoveThreshold) moveState.right = true; else moveState.right = false;
+                } else {
+                    moveState.left = false;
+                    moveState.right = false;
+                }
+            } else if (touch.identifier === lookingTouchId) {
+                const deltaX = touch.clientX - touchLookPreviousX;
+                const deltaY = touch.clientY - touchLookPreviousY;
+
+                // Yaw (left/right) - Rotate the controls.object (which camera is parented to)
+                controls.object.rotation.y -= deltaX * lookSensitivity;
+
+                // Pitch (up/down) - Rotate the camera itself
+                camera.rotation.x -= deltaY * lookSensitivity;
+                camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x)); // Clamp pitch
+
+                touchLookPreviousX = touch.clientX;
+                touchLookPreviousY = touch.clientY;
+            }
+        }
+    });
+
+    renderer.domElement.addEventListener('touchend', (event: TouchEvent) => {
+        // event.preventDefault();
+        for (let i = 0; i < event.changedTouches.length; i++) {
+            const touch = event.changedTouches[i];
+            if (touch.identifier === movingTouchId) {
+                movingTouchId = null;
+                moveState.forward = false;
+                moveState.backward = false;
+                moveState.left = false;
+                moveState.right = false;
+            } else if (touch.identifier === lookingTouchId) {
+                lookingTouchId = null;
+            }
+        }
+    });
+
+    // Hide mouse-specific hints if any
+    const couchTesterHintElement = document.querySelector('div[style*="Press P to open couch position tester"]');
+    if (couchTesterHintElement) (couchTesterHintElement as HTMLElement).style.display = 'none';
+} else {
+    // Desktop click-and-drag view controls
+    controls.disconnect(); // Disconnect PointerLockControls' default mouse listeners
+    console.log("Desktop: Initializing click-and-drag view controls.");
+
+    renderer.domElement.addEventListener('mousedown', (event: MouseEvent) => {
+        if (event.button === 0) { // Only on left click
+            isDraggingView = true;
+            previousMouseX = event.clientX;
+            previousMouseY = event.clientY;
+            renderer.domElement.style.cursor = 'grabbing';
+        }
+    });
+
+    window.addEventListener('mousemove', (event: MouseEvent) => {
+        if (isDraggingView) {
+            const deltaX = event.clientX - previousMouseX;
+            const deltaY = event.clientY - previousMouseY;
+
+            // Yaw (left/right) - Rotate the controls.object (which camera is parented to)
+            controls.object.rotation.y -= deltaX * lookSensitivity;
+
+            // Pitch (up/down) - Rotate the camera itself
+            camera.rotation.x -= deltaY * lookSensitivity;
+            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x)); // Clamp pitch
+
+            previousMouseX = event.clientX;
+            previousMouseY = event.clientY;
+        }
+    });
+
+    window.addEventListener('mouseup', (event: MouseEvent) => {
+        if (event.button === 0) { // Only on left click release
+            isDraggingView = false;
+            renderer.domElement.style.cursor = 'grab'; // Or 'auto' if you prefer
+        }
+    });
+    // Initial cursor style
+    renderer.domElement.style.cursor = 'grab';
+}
 
 // Navmesh collision collector
 const collidableMeshList: THREE.Mesh[] = [];
@@ -449,11 +641,13 @@ const couchObjects: THREE.Object3D[] = [];
 let nearCouch: THREE.Object3D | null = null;
 let nearSittingPosition: THREE.Object3D | null = null;
 let isSitting = false;
-let sittingPosition = new THREE.Vector3();
-let sittingRotation = new THREE.Euler();
-let standingPosition = new THREE.Vector3();
-let standingHeight = 1.6; // Default standing height
-const proximityDistance = 2.18; // Increased from 2 to make detection easier
+// let sittingPosition = new THREE.Vector3(); // Replaced by direct calculation
+// let sittingRotation = new THREE.Euler(); // Replaced by direct calculation
+let standingPosition = new THREE.Vector3(); // Stores the full (x,y,z) position before sitting
+// standingYaw and standingPitch are no longer needed as we retain current seated orientation when standing.
+let standingHeight = 1.6; // Default standing height - this is effectively eye height
+const sittingEyeHeight = 1.0; // Eye height when sitting
+const proximityDistance = 2.01; // Increased from 2 to make detection easier
 
 // Debug information
 console.log("Couch interaction system initialized");
@@ -860,7 +1054,9 @@ loader.load('/models/tvscreen.glb', (gltf: any) => {
 
 // PICKUP interaction
 window.addEventListener('mousedown', (event) => {
-  event.preventDefault();
+  // Only prevent default if an action is taken, to allow click for pointer lock.
+  let actionTaken = false;
+
   if (heldObject) {
     // Drop object
     const directionVector = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -869,18 +1065,49 @@ window.addEventListener('mousedown', (event) => {
     scene.add(heldObject);
     heldObject.position.copy(dropPosition);
     heldObject = null;
+    actionTaken = true;
   } else {
-      // Pick up object
-      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    // Pick up object only if not clicking on a UI element like the volume slider
+    if (event.target === renderer.domElement || !document.body.contains(event.target as Node) || (event.target as HTMLElement).closest('#audioControls') === null) {
+      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera); // Center of screen
       const intersects = raycaster.intersectObjects<THREE.Mesh>(interactiveObjects, true);
-      if (intersects.length > 0) {
-        const picked = intersects[0].object as THREE.Mesh;
-        heldObject = picked;
-        // @ts-ignore
-        scene.remove(heldObject);
-        controls.object.add(heldObject);
-        heldObject.position.set(0, 0, -pickupDistance);
+      if (intersects.length > 0 && intersects[0].distance <= pickupDistance) {
+        const pickedObject = intersects[0].object;
+        // Traverse up to find the root of the pickable model if it's a child mesh
+        let topLevelPickableObject: THREE.Object3D = pickedObject;
+        while (topLevelPickableObject.parent && !pickableUrls.includes(topLevelPickableObject.userData.url)) { // Assuming URL is stored in userData
+            if (topLevelPickableObject.parent !== scene) { // Stop if parent is scene
+                topLevelPickableObject = topLevelPickableObject.parent;
+            } else {
+                break; // Should not happen if pickableUrls are for root objects
+            }
+        }
+         // Ensure we are picking up a root object defined in pickableUrls
+        // This part needs careful handling of how models are structured and marked as pickable.
+        // For now, let's assume intersects[0].object is what we want if it's in interactiveObjects.
+        // The interactiveObjects array seems to store individual meshes, not necessarily root GLTF scenes.
+        // This pickup logic might need further refinement based on how 'interactiveObjects' are populated.
+        // Sticking to original logic of picking intersects[0].object for now if it's in interactiveObjects.
+
+        heldObject = intersects[0].object as THREE.Mesh; // Original logic was to pick the intersected mesh
+        
+        // To pick up the whole GLTF scene node, one would need to find its root from the intersected mesh.
+        // This can be complex if pickableUrls are not directly on the meshes in interactiveObjects.
+        // For simplicity, we continue with picking the mesh.
+        
+        if (heldObject.parent) { // Check if it has a parent before removing
+            heldObject.parent.remove(heldObject); // Remove from current parent (could be scene or another Object3D)
+        }
+        controls.object.add(heldObject); // Add to camera (controls.object)
+        heldObject.position.set(0, -0.2, -pickupDistance * 0.5); // Adjust position in front of camera
+        heldObject.rotation.set(0,0,0); // Reset rotation
+        actionTaken = true;
       }
+    }
+  }
+
+  if (actionTaken) {
+    event.preventDefault();
   }
 });
 
@@ -896,28 +1123,27 @@ const clock = new THREE.Clock();
    if (e.code === 'KeyE' && nearSittingPosition && !isSitting) {
      // Sit on the sitting position
      isSitting = true;
-     standingPosition.copy(controls.object.position);
+     standingPosition.copy(controls.object.position); // Store current standing position (x,y,z)
+     // We don't need to store standingYaw and standingPitch if we're not reverting to them.
      
-     // Get the sitting position from the model
-     const sitPosition = new THREE.Vector3();
-     nearSittingPosition.getWorldPosition(sitPosition);
+     // Get the base position of the seat
+     const seatBaseWorldPosition = new THREE.Vector3();
+     nearSittingPosition.getWorldPosition(seatBaseWorldPosition);
      
-     // Use the sitting position model's position and rotation
-     sittingPosition.copy(sitPosition);
-     sittingPosition.y += 1.0; // Adjust height to match the sitting position model
+     // Set player's new position (controls.object is the 'body' or 'eye level')
+     controls.object.position.set(
+       seatBaseWorldPosition.x,
+       seatBaseWorldPosition.y + sittingEyeHeight, // Adjust y to new eye height
+       seatBaseWorldPosition.z
+     );
      
-     // Get the rotation from the sitting position model
-     sittingRotation.copy(nearSittingPosition.rotation);
+     // Set player's orientation
+     controls.object.rotation.y = nearSittingPosition.rotation.y; // Adopt seat's yaw
+     camera.rotation.x = -0.1; // Slight downward pitch, or 0 for neutral
+     camera.rotation.y = 0;    // Ensure camera local yaw is 0
+     camera.rotation.z = 0;    // Ensure camera local roll is 0
      
-     console.log(`Sitting at position:`, sittingPosition);
-     console.log(`Using rotation:`, sittingRotation);
-     
-     // Log the player's current position for debugging
-     console.log(`Player position before sitting:`, controls.object.position);
-     
-     // Apply position and rotation
-     controls.object.position.copy(sittingPosition);
-     camera.rotation.copy(sittingRotation);
+     console.log(`Sitting. Player at:`, controls.object.position, `Facing Yaw:`, controls.object.rotation.y);
      
      // Disable movement while sitting
      moveState.forward = false;
@@ -931,15 +1157,18 @@ const clock = new THREE.Clock();
    }
    
    if (e.code === 'KeyW' && isSitting) {
-     // Stand up from the couch
+     // Stand up
      isSitting = false;
-     controls.object.position.copy(standingPosition);
+     controls.object.position.copy(standingPosition); // Restore position to where player was before sitting.
+     // Current camera.rotation.x (pitch) and controls.object.rotation.y (yaw) are retained from seated view.
+     
      interactionPrompt.style.display = 'none';
      
      // Reset movement state and velocity to prevent immediate forward launch
      moveState.forward = false; 
      velocity.x = 0;
      velocity.z = 0;
+     console.log(`Standing. Player at:`, controls.object.position, `Facing Yaw:`, controls.object.rotation.y, `Pitch:`, camera.rotation.x);
      return; // Prevent further processing of 'W' key in this event
    }
    
