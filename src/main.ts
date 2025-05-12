@@ -136,6 +136,7 @@ renderer.domElement.addEventListener('pointermove', (event: PointerEvent) => {
   updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-3.7, 0, .8));
   updateModelPosition('/models/couch_right.glb', new THREE.Vector3(2.5, 0, .8));
   updateModelPosition('/models/chair.glb', new THREE.Vector3(0, 0, 0));
+  updateModelPosition('/models/boss.glb', new THREE.Vector3(-0.8, 0, 1.89));
   console.log('Seating positions reset to default values');
 };
 
@@ -659,6 +660,13 @@ const EMIT_FPS = 24;
 const EMIT_INTERVAL = 1 / EMIT_FPS;
 const emitClock = new THREE.Clock();
 
+// Custom rotations for specific models (in radians)
+const modelRotations: {[key: string]: THREE.Euler} = {
+  '/models/leakstereo.glb': new THREE.Euler(0, -3.3, 0), // 90 degrees around Y axis
+  //'/models/chair.glb': new THREE.Euler(0, Math.PI, 0),          // 180 degrees around Y axis
+  // Add more model rotations as needed
+};
+
 // Load navmesh (invisible, collision only)
 loader.load('/models/navmesh.glb', (gltf: any) => {
   const nav = gltf.scene;
@@ -816,6 +824,7 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
       const type = object.userData.type;
       if ((type === 'couch_left' && modelUrl === '/models/couch_left.glb') || 
           (type === 'couch_right' && modelUrl === '/models/couch_right.glb') ||
+          (type === 'boss' && modelUrl === '/models/boss.glb') ||
           (type === 'chair' && modelUrl === '/models/chair.glb')) {
         object.position.copy(position);
         
@@ -840,8 +849,10 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
   });
 }
 
-// Add chair position to modelPositions
+// Add model position to modelPositions
 modelPositions['/models/chair.glb'] = new THREE.Vector3(0, 0, 0); // Default chair position
+modelPositions['/models/boss.glb'] = new THREE.Vector3(-0.847, 0, -2.02); // Default boss position
+modelPositions['/models/leakstereo.glb'] = new THREE.Vector3(1.4933, -0.011, 4.558); // Default boss position
 
 // Example usage:
 // updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 0, 3));
@@ -862,6 +873,11 @@ staticModelUrls.forEach(url => {
     // Set position for specific models if defined
     if (modelPositions[url]) {
       modelScene.position.copy(modelPositions[url]);
+    }
+
+    // Apply custom rotation if defined
+    if (url in modelRotations) {
+      gltf.scene.rotation.copy(modelRotations[url]);
     }
     
 // Track couch and chair objects for sitting interaction
@@ -1183,7 +1199,6 @@ window.addEventListener('mousedown', (event) => {
         }
       }
     }
-  // } // This closing brace was causing the issue
 
   if (actionTaken) {
     event.preventDefault(); // Prevent default browser action if we picked/dropped
