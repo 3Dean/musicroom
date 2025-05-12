@@ -900,21 +900,97 @@ staticModelUrls.forEach(url => {
 // Initialize vapor effect
 vaporEffectMaterial = addVaporToCoffee(scene, loader);
 
-// Create a prompt element for sitting interaction
-const interactionPrompt = document.createElement('div');
+// Create a button element for sitting interaction
+const interactionPrompt = document.createElement('button'); // Changed to button
+interactionPrompt.id = 'interactionButton'; // Added ID for styling/selection
 interactionPrompt.style.position = 'absolute';
 interactionPrompt.style.top = '50%';
 interactionPrompt.style.left = '50%';
 interactionPrompt.style.transform = 'translate(-50%, -50%)';
-interactionPrompt.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+interactionPrompt.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'; // Slightly darker background
 interactionPrompt.style.color = 'white';
-interactionPrompt.style.padding = '10px';
-interactionPrompt.style.borderRadius = '5px';
+interactionPrompt.style.padding = '12px 20px'; // Larger padding
+interactionPrompt.style.border = '1px solid #fff'; // White border
+interactionPrompt.style.borderRadius = '8px'; // More rounded corners
 interactionPrompt.style.fontFamily = 'Arial, sans-serif';
 interactionPrompt.style.fontSize = '16px';
+interactionPrompt.style.cursor = 'pointer'; // Add pointer cursor
 interactionPrompt.style.display = 'none';
-interactionPrompt.style.pointerEvents = 'none'; // Prevent interaction with the prompt
+interactionPrompt.style.zIndex = '1001'; // Ensure it's above other elements like debug
+// interactionPrompt.style.pointerEvents = 'none'; // Removed, button needs pointer events
 document.body.appendChild(interactionPrompt);
+
+
+const closeButton = document.createElement('button');
+closeButton.id = 'closeButton';
+closeButton.textContent = 'Stand';
+closeButton.style.position = 'absolute';
+closeButton.style.top = '10px';
+closeButton.style.right = '10px';
+closeButton.style.padding = '8px 12px';
+closeButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+closeButton.style.color = 'white';
+closeButton.style.border = '1px solid #fff';
+closeButton.style.borderRadius = '5px';
+closeButton.style.cursor = 'pointer';
+closeButton.style.display = 'none';
+closeButton.style.zIndex = '1001';
+document.body.appendChild(closeButton);
+
+// Close button click handler to stand up
+closeButton.addEventListener('click', (event: MouseEvent) => {
+  event.stopPropagation();
+  if (isSitting) {
+    isSitting = false;
+    controls.object.position.copy(standingPosition);
+    interactionPrompt.style.display = 'none';
+    closeButton.style.display = 'none';
+    moveState.forward = moveState.backward = moveState.left = moveState.right = false;
+    console.log('Standing via close button', controls.object.position);
+  }
+});
+
+ // Add event listener to the interaction button
+ interactionPrompt.addEventListener('click', (event) => {
+   if (nearSittingPosition && !isSitting) {
+     triggerSitAction(); // Call a function to handle sitting
+   }
+   // Prevent click from propagating to canvas/window listeners
+   event.stopPropagation();
+ });
+
+// Function to handle the sitting action
+function triggerSitAction() {
+  isSitting = true;
+  standingPosition.copy(controls.object.position);
+
+  const seatBaseWorldPosition = new THREE.Vector3();
+  nearSittingPosition!.getWorldPosition(seatBaseWorldPosition); // Use non-null assertion
+
+  controls.object.position.set(
+    seatBaseWorldPosition.x,
+    seatBaseWorldPosition.y + sittingEyeHeight,
+    seatBaseWorldPosition.z
+  );
+
+  controls.object.rotation.y = nearSittingPosition!.rotation.y; // Use non-null assertion
+  camera.rotation.x = -0.1;
+  camera.rotation.y = 0;
+  camera.rotation.z = 0;
+
+  console.log(`Sitting via button. Player at:`, controls.object.position, `Facing Yaw:`, controls.object.rotation.y);
+
+  moveState.forward = false;
+  moveState.backward = false;
+  moveState.left = false;
+  moveState.right = false;
+
+  // Hide the sit button and show the stand (close) button
+  interactionPrompt.style.display = 'none';
+  closeButton.style.display = 'block';
+  // Optionally, change text for standing:
+  // interactionPrompt.textContent = 'Tap W to stand'; // Or similar for touch
+}
 
 // Create debug display for position information
 const debugDisplay = document.createElement('div');
@@ -1100,48 +1176,18 @@ const clock = new THREE.Clock();
  window.addEventListener('keydown', (e) => {
    // Handle sitting/standing with E and W keys
    if (e.code === 'KeyE' && nearSittingPosition && !isSitting) {
-     // Sit on the sitting position
-     isSitting = true;
-     standingPosition.copy(controls.object.position); // Store current standing position (x,y,z)
-     // We don't need to store standingYaw and standingPitch if we're not reverting to them.
-     
-     // Get the base position of the seat
-     const seatBaseWorldPosition = new THREE.Vector3();
-     nearSittingPosition.getWorldPosition(seatBaseWorldPosition);
-     
-     // Set player's new position (controls.object is the 'body' or 'eye level')
-     controls.object.position.set(
-       seatBaseWorldPosition.x,
-       seatBaseWorldPosition.y + sittingEyeHeight, // Adjust y to new eye height
-       seatBaseWorldPosition.z
-     );
-     
-     // Set player's orientation
-     controls.object.rotation.y = nearSittingPosition.rotation.y; // Adopt seat's yaw
-     camera.rotation.x = -0.1; // Slight downward pitch, or 0 for neutral
-     camera.rotation.y = 0;    // Ensure camera local yaw is 0
-     camera.rotation.z = 0;    // Ensure camera local roll is 0
-     
-     console.log(`Sitting. Player at:`, controls.object.position, `Facing Yaw:`, controls.object.rotation.y);
-     
-     // Disable movement while sitting
-     moveState.forward = false;
-     moveState.backward = false;
-     moveState.left = false;
-     moveState.right = false;
-     
-     // Update prompt
-     interactionPrompt.textContent = 'Press W to stand';
-     return;
+     triggerSitAction(); // Use the shared function
+     return; // Prevent further processing of 'E' key
    }
    
-   if (e.code === 'KeyW' && isSitting) {
+if (e.code === 'KeyW' && isSitting) {
      // Stand up
      isSitting = false;
      controls.object.position.copy(standingPosition); // Restore position to where player was before sitting.
      // Current camera.rotation.x (pitch) and controls.object.rotation.y (yaw) are retained from seated view.
      
      interactionPrompt.style.display = 'none';
+     closeButton.style.display = 'none';
      
      // Reset movement state and velocity to prevent immediate forward launch
      moveState.forward = false; 
@@ -1287,30 +1333,35 @@ function animate() {
       controls.object.position.copy(oldPos);
     }
     
-    // Check for proximity to sitting positions
+    // Check for proximity AND facing to sitting positions
     let isNearAnySittingPosition = false;
     if (sittingPositionObjects.length > 0) {
       const playerPosition = controls.object.position.clone();
+      const cameraDir = new THREE.Vector3();
+      camera.getWorldDirection(cameraDir);
       
       for (const sitPos of sittingPositionObjects) {
         const sitPosition = new THREE.Vector3();
         sitPos.getWorldPosition(sitPosition);
         
+        const toSit = sitPosition.clone().sub(playerPosition).normalize();
         const distance = playerPosition.distanceTo(sitPosition);
-        if (distance < proximityDistance) { // Use the increased proximity distance
+        const isFacing = cameraDir.dot(toSit) > 0.5; // threshold for facing
+        
+        if (distance < proximityDistance && isFacing) {
           isNearAnySittingPosition = true;
           nearSittingPosition = sitPos;
           
           // Find the associated couch for reference
           const couchType = sitPos.userData.forCouch;
-          scene.traverse((object: THREE.Object3D) => { // Added type
+          scene.traverse((object: THREE.Object3D) => {
             if (object.userData && object.userData.type === couchType) {
               nearCouch = object;
             }
           });
           
-          // Show interaction prompt
-          interactionPrompt.textContent = 'Press E to sit';
+          // Show interaction button
+          interactionPrompt.textContent = 'Sit';
           interactionPrompt.style.display = 'block';
           break;
         }
