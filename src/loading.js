@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+    /* document.addEventListener('DOMContentLoaded', () => {
     const loadingPercentageElement = document.getElementById('loading-percentage');
     const loadingProgressBarElement = document.getElementById('loading-progress-bar');
     const kilobytesLoadedElement = document.getElementById('kilobytes-loaded');
@@ -32,4 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const loadingInterval = setInterval(updateLoader, intervalTime);
+});
+ */
+
+//Real Data Loading
+ window.addEventListener('load', () => {
+  document.getElementById('loading-screen').style.display = 'none';
 });
