@@ -63,7 +63,7 @@ const vaporMaterial = new THREE.ShaderMaterial({
       vFrameOffset = vec2(col * vFrameScale.x, (tilesVert - row - 1.0) * vFrameScale.y);
 
       // apply slight upward motion based on fade phase
-      vec3 moved = position + vec3(0.0, vPhase * 0.15, 0.0); // Particle moves up slightly as it animates
+      vec3 moved = position + vec3(0.0, vPhase * 0.16, 0.0); // Particle moves up slightly as it animates
       vec4 mvPosition = modelViewMatrix * vec4(moved, 1.0);
       gl_PointSize = 256.0 / -mvPosition.z; // Adjust size based on distance
       gl_Position = projectionMatrix * mvPosition;
@@ -107,7 +107,7 @@ export function addVaporToCoffee(scene, gltfLoader) {
     // Create vapor emitter points
     const vaporParticles = new THREE.Points(vaporGeometry, vaporMaterial);
     // Position the vapor slightly above the coffee model's highest point
-    vaporParticles.position.set(center.x, maxY + 0.05, center.z); // Adjust Y offset as needed
+    vaporParticles.position.set(center.x, maxY + 0.1, center.z); // Adjust Y offset as needed
     
     scene.add(vaporParticles);
     console.log('Coffee model and vapor effect added to the scene.');

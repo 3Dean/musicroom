@@ -1107,7 +1107,11 @@ loader.load('/models/tvscreen.glb', (gltf: any) => {
   tvScreenObject = gltf.scene;
   // Set initial TV screen position
   tvScreenObject!.position.set(0, 0, 0);
-  console.log(`Initial TV screen position: ${tvScreenObject.position.x}, ${tvScreenObject.position.y}, ${tvScreenObject.position.z}`);
+  if (tvScreenObject) {
+    console.log(`Initial TV screen position: ${tvScreenObject.position.x}, ${tvScreenObject.position.y}, ${tvScreenObject.position.z}`);
+  } else {
+    console.warn('TV screen object is null.');
+  }
   gltf.scene.traverse((child: THREE.Object3D) => {
     if ((child as THREE.Mesh).isMesh) {
       const mesh = child as THREE.Mesh;
