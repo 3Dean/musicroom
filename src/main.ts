@@ -73,6 +73,17 @@ function initializeApp() {
 let pointLights: THREE.PointLight[] = [];
 let hues: number[] = [];
 let lightHelpers: THREE.Object3D[] = []; // Store light helpers
+let tvScreenObject: THREE.Object3D | null = null; // Reference to TV screen for seating view
+
+ // Expose function to reposition TV screen at runtime
+;(window as any).updateTvScreenPosition = (x: number, y: number, z: number) => {
+  if (!tvScreenObject) {
+    console.warn('TV screen object not yet loaded.');
+    return;
+  }
+  tvScreenObject!.position.set(x, y, z);
+  console.log(`TV screen moved to: ${x}, ${y}, ${z}`);
+};
 
 // Scene + Camera + Renderer
 const scene = new THREE.Scene();
@@ -466,10 +477,12 @@ window.addEventListener('keydown', (e) => {
 
 
  // Click on canvas to resume audio context (and start drag for desktop)
- renderer.domElement.addEventListener('click', () => {
+renderer.domElement.addEventListener('click', () => {
     // For non-touch devices, pointer lock is removed. Click-and-drag will handle view.
     // For touch devices, this click listener might not be relevant if touch events are primary.
- });
+    // Attempt to play video texture on first user interaction (mobile)
+    video.play().catch(err => console.error('Error playing video texture:', err));
+});
 
  if (isTouchDevice) {
     controls.disconnect(); // Disconnect PointerLockControls' own event listeners for mouse/pointerlock
@@ -972,11 +985,11 @@ function triggerSitAction() {
     seatBaseWorldPosition.y + sittingEyeHeight,
     seatBaseWorldPosition.z
   );
+  // Orient view to match sitting position orientation
+  const sitRot = nearSittingPosition!.rotation;
+  controls.object.rotation.set(0, sitRot.y, 0);
+  camera.rotation.x = 0;
 
-  controls.object.rotation.y = nearSittingPosition!.rotation.y; // Use non-null assertion
-  camera.rotation.x = -0.1;
-  camera.rotation.y = 0;
-  camera.rotation.z = 0;
 
   console.log(`Sitting via button. Player at:`, controls.object.position, `Facing Yaw:`, controls.object.rotation.y);
 
@@ -1081,6 +1094,9 @@ video.src = '/videos/tvscreen.mp4';
 video.crossOrigin = 'anonymous';
 video.loop = true;
 video.muted = true;
+video.setAttribute('playsinline', 'true');
+video.setAttribute('webkit-playsinline', 'true');
+(video as any).playsInline = true;
 video.play();
 const videoTexture = new THREE.VideoTexture(video);
 videoTexture.minFilter = THREE.LinearFilter;
@@ -1088,6 +1104,10 @@ videoTexture.magFilter = THREE.LinearFilter;
 videoTexture.format = THREE.RGBAFormat;
 
 loader.load('/models/tvscreen.glb', (gltf: any) => {
+  tvScreenObject = gltf.scene;
+  // Set initial TV screen position
+  tvScreenObject!.position.set(0, 0, 0);
+  console.log(`Initial TV screen position: ${tvScreenObject.position.x}, ${tvScreenObject.position.y}, ${tvScreenObject.position.z}`);
   gltf.scene.traverse((child: THREE.Object3D) => {
     if ((child as THREE.Mesh).isMesh) {
       const mesh = child as THREE.Mesh;
