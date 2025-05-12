@@ -89,8 +89,7 @@ import * as THREE from 'three';
 // --- TOUCH CONTROL VARIABLES ---
 const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 document.body.classList.add(isTouchDevice ? 'touch' : 'mouse');
-let touchLookStartX = 0;
-let touchLookStartY = 0;
+// touchLookStartX and touchLookStartY are unused as touchLookPreviousX/Y capture initial values.
 let touchLookPreviousX = 0;
 let touchLookPreviousY = 0;
 let lookingTouchId: number | null = null;
@@ -100,7 +99,7 @@ let touchMoveStartX = 0;
 let touchMoveStartY = 0;
 let movingTouchId: number | null = null;
 const touchMoveThreshold = 20; // Min pixels to drag before movement starts
-const touchMoveSensitivity = 0.05; // Adjust how much drag translates to movement strength
+// const touchMoveSensitivity = 0.05; // This variable was declared but not used.
 
 // --- END TOUCH CONTROL VARIABLES ---
 
@@ -522,8 +521,8 @@ window.addEventListener('keydown', (e) => {
                 touchMoveStartY = touch.clientY;
             } else if (touch.clientX >= window.innerWidth / 2 && lookingTouchId === null) { // Right half for looking
                 lookingTouchId = touch.identifier;
-                touchLookStartX = touch.clientX;
-                touchLookStartY = touch.clientY;
+                // touchLookStartX = touch.clientX; // Redundant, touchLookPreviousX is used
+                // touchLookStartY = touch.clientY; // Redundant, touchLookPreviousY is used
                 touchLookPreviousX = touch.clientX;
                 touchLookPreviousY = touch.clientY;
             }
