@@ -24,50 +24,6 @@
 } */
 import './style.css';
 
-// --- LOADING SCREEN LOGIC START ---
-const loadingPercentageElement = document.getElementById('loading-percentage') as HTMLElement | null;
-const loadingProgressBarElement = document.getElementById('loading-progress-bar') as HTMLElement | null;
-const kilobytesLoadedElement = document.getElementById('kilobytes-loaded') as HTMLElement | null;
-const loadingScreenElement = document.getElementById('loading-screen') as HTMLElement | null;
-
-const totalKilobytesToLoad = 1264; // Simulate loading 43.5MB (adjust as needed)
-let loadedKilobytes = 0;
-const loadIncrement = 500; // Load 50KB at a time
-const intervalTime = 50; // Update every 100ms
-let loadingInterval: number;
-
-function updateLoader() {
-    loadedKilobytes += loadIncrement;
-    if (loadedKilobytes > totalKilobytesToLoad) {
-        loadedKilobytes = totalKilobytesToLoad;
-    }
-
-    const percentage = Math.round((loadedKilobytes / totalKilobytesToLoad) * 100);
-
-    if (loadingPercentageElement) loadingPercentageElement.textContent = `${percentage}%`;
-    if (loadingProgressBarElement) loadingProgressBarElement.style.width = `${percentage}%`;
-    if (kilobytesLoadedElement) kilobytesLoadedElement.textContent = `${loadedKilobytes} / ${totalKilobytesToLoad} KB`;
-
-    if (loadedKilobytes >= totalKilobytesToLoad) {
-        clearInterval(loadingInterval);
-        setTimeout(() => {
-            if (loadingScreenElement) loadingScreenElement.style.display = 'none';
-            console.log('Loading complete! Initializing application...');
-            initializeApp(); // Initialize the main application
-        }, 500);
-    }
-}
-
-// Start loading simulation if all elements are present
-if (loadingPercentageElement && loadingProgressBarElement && kilobytesLoadedElement && loadingScreenElement) {
-    loadingInterval = setInterval(updateLoader, intervalTime);
-} else {
-    console.error('One or more loading screen elements not found. Skipping loading screen.');
-    if (loadingScreenElement) loadingScreenElement.style.display = 'none';
-    initializeApp();
-}
-// --- LOADING SCREEN LOGIC END ---
-
 // Extend the Window interface to include customLights
 declare global {
   interface Window {
@@ -108,6 +64,9 @@ let isDraggingView = false;
 let previousMouseX = 0;
 let previousMouseY = 0;
 
+// Call initializeApp directly since loading screen is removed
+initializeApp();
+
 function initializeApp() {
   console.log(`isTouchDevice: ${isTouchDevice}`); // Diagnostic log
 
@@ -127,6 +86,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 renderer.domElement.tabIndex = 0;
 renderer.domElement.style.outline = 'none';
+
+// Listen for pointer move to update hover detection coordinates
+renderer.domElement.addEventListener('pointermove', (event: PointerEvent) => {
+    mouseForHover.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouseForHover.y = - (event.clientY / window.innerHeight) * 2 + 1;
+}, false);
 
 (window as any).scene = scene;
 (window as any).camera = camera;
@@ -746,11 +711,12 @@ const staticModelUrls = [
 ];
 
 const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
-const interactiveObjects: THREE.Mesh[] = [];
-let heldObject: THREE.Mesh | null = null;
+const interactiveObjects: THREE.Mesh[] = []; // Will store child meshes of pickable objects
+let heldObject: THREE.Object3D | null = null; // Can now be a Group/Scene (GLB root)
 const raycaster = new THREE.Raycaster();
 const pickupDistance = 2;
 let hoveredObject: THREE.Mesh | null = null;
+const mouseForHover = new THREE.Vector2(); // For hover detection based on mouse/touch position
 
 // Define positions for couch models
 const modelPositions: { [key: string]: THREE.Vector3 } = {
@@ -918,8 +884,12 @@ staticModelUrls.forEach(url => {
     }
     
     if (pickableUrls.includes(url)) {
+      modelScene.userData.isPickableRoot = true; // Mark the root of the GLB
+      modelScene.userData.url = url; // Store URL for potential identification
+
       modelScene.traverse((child: THREE.Object3D) => {
         if ((child as THREE.Mesh).isMesh) {
+          child.userData.pickableGLBRoot = modelScene; // Link mesh to its GLB root
           interactiveObjects.push(child as THREE.Mesh);
         }
       });
@@ -1057,56 +1027,66 @@ window.addEventListener('mousedown', (event) => {
   let actionTaken = false;
 
   if (heldObject) {
-    // Drop object
-    const directionVector = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-    const dropPosition = camera.getWorldPosition(new THREE.Vector3()).add(directionVector.multiplyScalar(pickupDistance));
+    // Drop object logic
+    const dropRaycaster = new THREE.Raycaster();
+    const cameraDirection = new THREE.Vector3();
+    camera.getWorldDirection(cameraDirection);
+    dropRaycaster.set(controls.object.position, cameraDirection); // Ray from player's eyes in view direction
+
+    const intersectsNavmesh = dropRaycaster.intersectObjects(collidableMeshList, false); // Don't check children of navmesh parts
+
+    let dropPosition: THREE.Vector3;
+
+    if (intersectsNavmesh.length > 0 && intersectsNavmesh[0].distance < pickupDistance * 1.5) {
+      // Hit navmesh in front, place it there
+      dropPosition = intersectsNavmesh[0].point.clone();
+      // Add a small offset so it sits on top, assuming object origin is at its base
+      // This is a simplification; ideally, use bounding box.
+      dropPosition.y += 0.1; 
+      console.log("Dropping object on navmesh at:", dropPosition);
+    } else {
+      // No navmesh hit in front, or too far: drop it a set distance in front at player's feet level
+      const forwardVector = new THREE.Vector3(0, 0, -1);
+      forwardVector.applyQuaternion(controls.object.quaternion); // Use player's body orientation
+      dropPosition = controls.object.position.clone().add(forwardVector.multiplyScalar(pickupDistance * 0.75));
+      // Attempt to place it at roughly the player's feet level on the Y axis
+      // This might need a downward raycast from this XZ to find actual floor if not on navmesh
+      // For now, just use player's Y, adjusted for standing height.
+      dropPosition.y = controls.object.position.y - standingHeight + 0.1; // 0.1 as a small base offset
+      console.log("Dropping object in front (no navmesh hit or too far) at:", dropPosition);
+    }
+
     controls.object.remove(heldObject);
     scene.add(heldObject);
     heldObject.position.copy(dropPosition);
+    // Reset object's rotation or set to a default world orientation
+    heldObject.rotation.set(0, controls.object.rotation.y, 0); // Align with player's yaw
+    
     heldObject = null;
     actionTaken = true;
   } else {
     // Pick up object only if not clicking on a UI element like the volume slider
-    if (event.target === renderer.domElement || !document.body.contains(event.target as Node) || (event.target as HTMLElement).closest('#audioControls') === null) {
-      raycaster.setFromCamera(new THREE.Vector2(0, 0), camera); // Center of screen
-      const intersects = raycaster.intersectObjects<THREE.Mesh>(interactiveObjects, true);
-      if (intersects.length > 0 && intersects[0].distance <= pickupDistance) {
-        const pickedObject = intersects[0].object;
-        // Traverse up to find the root of the pickable model if it's a child mesh
-        let topLevelPickableObject: THREE.Object3D = pickedObject;
-        while (topLevelPickableObject.parent && !pickableUrls.includes(topLevelPickableObject.userData.url)) { // Assuming URL is stored in userData
-            if (topLevelPickableObject.parent !== scene) { // Stop if parent is scene
-                topLevelPickableObject = topLevelPickableObject.parent;
-            } else {
-                break; // Should not happen if pickableUrls are for root objects
-            }
-        }
-         // Ensure we are picking up a root object defined in pickableUrls
-        // This part needs careful handling of how models are structured and marked as pickable.
-        // For now, let's assume intersects[0].object is what we want if it's in interactiveObjects.
-        // The interactiveObjects array seems to store individual meshes, not necessarily root GLTF scenes.
-        // This pickup logic might need further refinement based on how 'interactiveObjects' are populated.
-        // Sticking to original logic of picking intersects[0].object for now if it's in interactiveObjects.
-
-        heldObject = intersects[0].object as THREE.Mesh; // Original logic was to pick the intersected mesh
+    if (event.target === renderer.domElement && !(event.target as HTMLElement).closest('#audioControls')) {
+      // If an object is currently hovered and it's pickable, pick it up.
+      // This uses the hover state, which is continuously updated in animate().
+      if (hoveredObject && hoveredObject.userData.pickableGLBRoot) {
+        heldObject = hoveredObject.userData.pickableGLBRoot as THREE.Object3D;
         
-        // To pick up the whole GLTF scene node, one would need to find its root from the intersected mesh.
-        // This can be complex if pickableUrls are not directly on the meshes in interactiveObjects.
-        // For simplicity, we continue with picking the mesh.
-        
-        if (heldObject.parent) { // Check if it has a parent before removing
-            heldObject.parent.remove(heldObject); // Remove from current parent (could be scene or another Object3D)
+        if (heldObject.parent) {
+            heldObject.parent.remove(heldObject);
+          }
+          controls.object.add(heldObject); // Add GLB root to camera's parent
+          // Position in front of camera, 50% closer than before (original was -pickupDistance * 0.5)
+          heldObject.position.set(0, -0.2, -pickupDistance * 0.25); 
+          heldObject.rotation.set(0,0,0); // Reset rotation relative to camera
+          actionTaken = true;
         }
-        controls.object.add(heldObject); // Add to camera (controls.object)
-        heldObject.position.set(0, -0.2, -pickupDistance * 0.5); // Adjust position in front of camera
-        heldObject.rotation.set(0,0,0); // Reset rotation
-        actionTaken = true;
       }
     }
-  }
+  // } // This closing brace was causing the issue
 
   if (actionTaken) {
-    event.preventDefault();
+    event.preventDefault(); // Prevent default browser action if we picked/dropped
   }
 });
 
@@ -1235,24 +1215,33 @@ function animate() {
     });
   } */
 
-  // Hover highlight detection
-  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+  // Hover highlight detection - uses mouseForHover updated by pointermove
+  raycaster.setFromCamera(mouseForHover, camera);
   const hoverHits = raycaster.intersectObjects<THREE.Mesh>(interactiveObjects, true);
-  if (hoverHits.length > 0) {
-    const picked = hoverHits[0].object as THREE.Mesh;
-    if (picked !== hoveredObject) {
-      if (hoveredObject) {
-        const prevMat = hoveredObject.material as THREE.MeshStandardMaterial;
-        prevMat.emissive.setHex(0x000000);
+
+  if (hoverHits.length > 0 && hoverHits[0].distance <= pickupDistance) {
+    const intersectedMesh = hoverHits[0].object as THREE.Mesh;
+    // Ensure we are highlighting a mesh that is part of a pickable GLB root
+    if (intersectedMesh.userData.pickableGLBRoot) {
+      const pickablePart = intersectedMesh; // The mesh itself is what gets the emissive color
+      if (pickablePart !== hoveredObject) {
+        if (hoveredObject) {
+          const prevMat = hoveredObject.material as THREE.MeshStandardMaterial;
+          prevMat.emissive.setHex(0x000000); // Reset previous hovered
+        }
+        hoveredObject = pickablePart;
+        const mat = hoveredObject.material as THREE.MeshStandardMaterial;
+        mat.emissive = new THREE.Color(0x00ff00); // Highlight current
+        mat.emissiveIntensity = 0.5;
       }
-      hoveredObject = picked;
-      const mat = hoveredObject.material as THREE.MeshStandardMaterial;
-      mat.emissive = new THREE.Color(0x00ff00);
-      mat.emissiveIntensity = 0.5;
+    } else if (hoveredObject) { // If hovering over something not pickable, or too far
+      const prevMat = hoveredObject.material as THREE.MeshStandardMaterial;
+      prevMat.emissive.setHex(0x000000);
+      hoveredObject = null;
     }
-  } else if (hoveredObject) {
-    const mat = hoveredObject.material as THREE.MeshStandardMaterial;
-    mat.emissive.setHex(0x000000);
+  } else if (hoveredObject) { // No hits or hit is too far
+    const prevMat = hoveredObject.material as THREE.MeshStandardMaterial;
+    prevMat.emissive.setHex(0x000000);
     hoveredObject = null;
   }
 
