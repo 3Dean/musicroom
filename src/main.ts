@@ -238,13 +238,13 @@ if (!audioControlsContainer) {
 const playButton = document.createElement('button');
 playButton.textContent = 'Play Music';
 playButton.style.padding = '8px 12px';
-playButton.style.backgroundColor = '#007bff';
+playButton.style.backgroundColor = '#9e552f';
 playButton.style.color = 'white';
 playButton.style.border = 'none';
 playButton.style.borderRadius = '4px';
 playButton.style.cursor = 'pointer';
 playButton.style.fontWeight = 'bold';
-playButton.style.fontSize = '14px';
+playButton.style.fontSize = '11px';
 audioControlsContainer.appendChild(playButton);
 
 // Create volume slider
@@ -338,13 +338,13 @@ playButton.addEventListener('click', function() {
             console.error('Error playing audio:', error);
             playButton.textContent = 'Play Music';
             playButton.disabled = false;
-            playButton.style.backgroundColor = '#007bff';
+            playButton.style.backgroundColor = '#824323';
         });
     } else {
         audioElement.pause();
         isPlaying = false;
         playButton.textContent = 'Play Music';
-        playButton.style.backgroundColor = '#007bff'; // Blue for play
+        playButton.style.backgroundColor = '#9e552f'; // Blue for play
     }
 });
 
