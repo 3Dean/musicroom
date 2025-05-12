@@ -38,6 +38,8 @@ import { animateFlowers, initializeWindEffectOnModel } from './wind'; // Import 
 //import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
 //import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass';
 //import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
+//import { Vector3, Euler, Object3D } from 'three';
+import gsap from 'gsap'; // optional, for smooth tweening
 
 // import { Audio as ThreeAudio } from 'three'; // Removed as ThreeAudio is not used
 import * as THREE from 'three';
@@ -733,7 +735,10 @@ const staticModelUrls = [
 
 const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
 const interactiveObjects: THREE.Mesh[] = []; // Will store child meshes of pickable objects
+const animationMixers: {[key: string]: THREE.AnimationMixer} = {};
+const modelAnimations: {[key: string]: THREE.AnimationClip[]} = {};
 let heldObject: THREE.Object3D | null = null; // Can now be a Group/Scene (GLB root)
+const spinSpeed = 1.0; // radians per second
 const raycaster = new THREE.Raycaster();
 const pickupDistance = 2;
 let hoveredObject: THREE.Mesh | null = null;
@@ -879,6 +884,18 @@ staticModelUrls.forEach(url => {
     if (url in modelRotations) {
       gltf.scene.rotation.copy(modelRotations[url]);
     }
+    // Store animations if this is an interactive model
+    if (pickableUrls.includes(url)) {
+      gltf.scene.userData.modelUrl = url;
+      interactiveObjects.push(gltf.scene);
+    }
+      
+      // Store animations if any
+      if (gltf.animations && gltf.animations.length > 0) {
+        modelAnimations[url] = gltf.animations;
+        const mixer = new THREE.AnimationMixer(gltf.scene);
+        animationMixers[url] = mixer;
+      }
     
 // Track couch and chair objects for sitting interaction
     if (url === '/models/couch_left.glb' || url === '/models/couch_right.glb' || url === '/models/chair.glb') {
@@ -1176,7 +1193,12 @@ window.addEventListener('mousedown', (event) => {
     scene.add(heldObject);
     heldObject.position.copy(dropPosition);
     // Reset object's rotation or set to a default world orientation
-    heldObject.rotation.set(0, controls.object.rotation.y, 0); // Align with player's yaw
+    gsap.to(heldObject.rotation, {
+  x: 0,
+  y: controls.object.rotation.y,
+  z: 0,
+  duration: 0.5
+});
     
     heldObject = null;
     actionTaken = true;
@@ -1264,7 +1286,16 @@ window.addEventListener('resize', () => {
 // Main loop
 function animate() {
   requestAnimationFrame(animate);
+// ——— get a single delta for this frame ———
 
+const delta = clock.getDelta();
+
+// ——— spin the held object ———
+
+if (heldObject) {
+
+ heldObject.rotation.y += delta * spinSpeed;
+}
   // Update original color cycling point lights
   pointLights.forEach((light, i) => {
     hues[i] += 0.002; // control speed here
@@ -1346,7 +1377,7 @@ function animate() {
 
   // Movement & collision
   if (collidableMeshList.length > 0 && !isSitting) {
-    const delta = clock.getDelta();
+    //const delta = clock.getDelta();
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
 
