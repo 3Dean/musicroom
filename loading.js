@@ -35,7 +35,22 @@
 });
  */
 
-//Real Data Loading
- window.addEventListener('load', () => {
-  document.getElementById('loading-screen').style.display = 'none';
+const pctEl    = document.getElementById('loading-percentage');
+const barEl    = document.getElementById('loading-progress-bar');
+const kbEl     = document.getElementById('kilobytes-loaded');
+const overlay  = document.getElementById('loading-screen');
+
+let fakePct = 0;
+const fakeInt = setInterval(() => {
+  fakePct = Math.min(100, fakePct + Math.random() * 10|0);
+  pctEl.textContent = fakePct + '%';
+  barEl.style.width  = fakePct + '%';
+  kbEl.textContent   = Math.round((fakePct/100)*2048) + ' / 2048 KB';
+  if (fakePct === 100) clearInterval(fakeInt);
+}, 100);
+
+// hide when everything’s really done
+window.addEventListener('load', () => {
+  overlay.style.opacity = '0';
+  setTimeout(() => overlay.style.display='none', 500);
 });

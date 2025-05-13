@@ -1185,7 +1185,7 @@ window.addEventListener('mousedown', (event) => {
       // Attempt to place it at roughly the player's feet level on the Y axis
       // This might need a downward raycast from this XZ to find actual floor if not on navmesh
       // For now, just use player's Y, adjusted for standing height.
-      dropPosition.y = controls.object.position.y - standingHeight + 0.1; // 0.1 as a small base offset
+      dropPosition.y = controls.object.position.y - standingHeight + 0.01; // 0.1 as a small base offset
       console.log("Dropping object in front (no navmesh hit or too far) at:", dropPosition);
     }
 
