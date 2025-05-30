@@ -634,7 +634,7 @@ console.log("Couch interaction system initialized");
 
 // Preload emission textures
 const emitLoader = new THREE.TextureLoader();
-const EMIT_COUNT = 200;
+const EMIT_COUNT = 24;
 const emitTextures: THREE.Texture[] = [];
 for (let i = 0; i < EMIT_COUNT; i++) {
   const idx = i.toString().padStart(5, '0');
@@ -658,7 +658,7 @@ const mixingBoardMeshes: THREE.Mesh[] = [];
 // Animation timing
 let emitFrame = 0;
 let emitAccumulator = 0;
-const EMIT_FPS = 24;
+const EMIT_FPS = 3;
 const EMIT_INTERVAL = 1 / EMIT_FPS;
 const emitClock = new THREE.Clock();
 
@@ -701,13 +701,36 @@ loader.load('/models/mixingboard.glb', (gltf: any) => {
   scene.add(board);
 });
 
+// 1) Load, add, clone & offset the plant stand
+loader.load('/models/plantstand2_L.glb', (gltf: any) => {
+  const originalStand = gltf.scene;
+  scene.add(originalStand);
+
+  const standClone = originalStand.clone(true);
+  standClone.position.x += 6.1;      // move clone 2.8 units (≈6 m) on X
+  scene.add(standClone);
+});
+
+// 2) Load, add, clone & offset the plant leaves
+loader.load('/models/plantleaves2_L.glb', (gltf: any) => {
+  const originalLeaves = gltf.scene;
+  scene.add(originalLeaves);
+
+    // **Init wind on the *original* leaves**
+  initializeWindEffectOnModel(originalLeaves, 'plantleaves2_L');
+
+  const leavesClone = originalLeaves.clone(true);
+  leavesClone.position.x += 6.1;      // same offset on X
+  scene.add(leavesClone);
+
+  // if you still want the wind effect on the clone:
+  initializeWindEffectOnModel(leavesClone, 'plantleaves2_L');
+});
+
 // Load other models into scene
 const staticModelUrls = [
   '/models/boss.glb',
-  '/models/cabinet_left.glb',
-  '/models/cabinet_right.glb',
   '/models/chair.glb',
-  // '/models/coffee.glb', // Coffee model will be loaded by addVaporToCoffee
   '/models/couch_left.glb', // Will be tracked for sitting
   '/models/couch_right.glb', // Will be tracked for sitting
   '/models/desk.glb',
@@ -717,7 +740,6 @@ const staticModelUrls = [
   '/models/image03.glb',
   '/models/image04.glb',
   '/models/leakstereo.glb',
-  //'/models/plants.glb',
   '/models/soundboard.glb',
   '/models/speakers.glb',
   '/models/vinylrecord.glb',
@@ -726,11 +748,7 @@ const staticModelUrls = [
   '/models/structure_wall001.glb',
   '/models/structure_wall002.glb',
   '/models/structure_wall003.glb',
-  '/models/rug.glb',
-  '/models/plantstand_l.glb',
-  '/models/plantstand_r.glb',
-  '/models/plantleaves_l.glb', // Will be animated by wind
-  '/models/plantleaves_r.glb'  // Will be animated by wind
+  '/models/rug.glb'
 ];
 
 const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
@@ -868,7 +886,7 @@ staticModelUrls.forEach(url => {
     scene.add(modelScene);
 
     // Initialize wind effect for plant leaves
-    if (url === '/models/plantleaves_l.glb') {
+    if (url === '/models/plantleaves2_L.glb') {
       initializeWindEffectOnModel(modelScene, 'plantleaves_l');
     }
     if (url === '/models/plantleaves_r.glb') {

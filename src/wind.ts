@@ -3,10 +3,10 @@ import * as THREE from 'three';
 export const flowerParts: THREE.Mesh[] = [];
 
 export const windSettings = {
-  strength: 0.01, // Further adjusted for more subtle movement
-  speed: 0.1,    // Slower speed for a gentler breeze
-  chaos: 0.2,   // Slightly more chaos for less predictability
-  maxAngle: 0.04, // Smaller max angle for subtlety
+  strength: 0.1, // Further adjusted for more subtle movement
+  speed: 0.2,    // Slower speed for a gentler breeze
+  chaos: 0.01,   // Slightly more chaos for less predictability
+  maxAngle: 0.05, // Smaller max angle for subtlety
 };
 
 export function animateFlowers(time: number) {
