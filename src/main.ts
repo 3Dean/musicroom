@@ -848,6 +848,7 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
       if ((type === 'couch_left' && modelUrl === '/models/couch_left.glb') || 
           (type === 'couch_right' && modelUrl === '/models/couch_right.glb') ||
           (type === 'boss' && modelUrl === '/models/boss.glb') ||
+          (type === 'album' && modelUrl === '/models/vinylrecord.glb') ||
           (type === 'chair' && modelUrl === '/models/chair.glb')) {
         object.position.copy(position);
         
@@ -874,8 +875,9 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
 
 // Add model position to modelPositions
 modelPositions['/models/chair.glb'] = new THREE.Vector3(0, 0, 0); // Default chair position
-modelPositions['/models/boss.glb'] = new THREE.Vector3(-0.847, 0, -2.02); // Default boss position
-modelPositions['/models/leakstereo.glb'] = new THREE.Vector3(1.4933, -0.011, 4.558); // Default boss position
+modelPositions['/models/boss.glb'] = new THREE.Vector3(-0.847, 0, -2.02); // Default audio equipment position
+modelPositions['/models/leakstereo.glb'] = new THREE.Vector3(1.4933, -0.011, 4.558); // Default Stereo position
+modelPositions['/models/vinylrecord.glb'] = new THREE.Vector3(1.523, 0.23, -2.28); // Default record position
 
 // Example usage:
 // updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 0, 3));
