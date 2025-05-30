@@ -758,7 +758,7 @@ const modelAnimations: {[key: string]: THREE.AnimationClip[]} = {};
 let heldObject: THREE.Object3D | null = null; // Can now be a Group/Scene (GLB root)
 const spinSpeed = 1.0; // radians per second
 const raycaster = new THREE.Raycaster();
-const pickupDistance = 2;
+const pickupDistance = 3;
 let hoveredObject: THREE.Mesh | null = null;
 const mouseForHover = new THREE.Vector2(); // For hover detection based on mouse/touch position
 
