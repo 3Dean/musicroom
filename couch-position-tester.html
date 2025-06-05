@@ -185,7 +185,7 @@
                 switch (preset) {
                     case 'facing':
                         window.opener.updateModelPosition('/models/couch_left.glb', -3, 0, 0);
-                        window.opener.updateModelPosition('/models/couch_right.glb', 3, 0, 0);
+                        window.opener.updateModelPosition('/models/couch_right.glb', 5.2, 0, 2);
                         log("Couches positioned facing each other.");
                         
                         // Update input fields
@@ -193,24 +193,24 @@
                         document.getElementById('left-y').value = 0;
                         document.getElementById('left-z').value = 0;
                         
-                        document.getElementById('right-x').value = 3;
+                        document.getElementById('right-x').value = 5.2;
                         document.getElementById('right-y').value = 0;
-                        document.getElementById('right-z').value = 0;
+                        document.getElementById('right-z').value = 2;
                         break;
                         
                     case 'corner':
-                        window.opener.updateModelPosition('/models/couch_left.glb', -3, 0, 3);
-                        window.opener.updateModelPosition('/models/couch_right.glb', 3, 0, 3);
+                        window.opener.updateModelPosition('/models/couch_left.glb', -2, 0, 4);
+                        window.opener.updateModelPosition('/models/couch_right.glb', 5.2, 0, 2);
                         log("Couches positioned in corner arrangement.");
                         
                         // Update input fields
-                        document.getElementById('left-x').value = -3;
+                        document.getElementById('left-x').value = -2;
                         document.getElementById('left-y').value = 0;
-                        document.getElementById('left-z').value = 3;
+                        document.getElementById('left-z').value = 4;
                         
-                        document.getElementById('right-x').value = 3;
+                        document.getElementById('right-x').value = 5.2;
                         document.getElementById('right-y').value = 0;
-                        document.getElementById('right-z').value = 3;
+                        document.getElementById('right-z').value = 2;
                         break;
                         
                     case 'side-by-side':
@@ -229,8 +229,8 @@
                         break;
                         
                     case 'far-apart':
-                        window.opener.updateModelPosition('/models/couch_left.glb', -5, 0, -5);
-                        window.opener.updateModelPosition('/models/couch_right.glb', 5, 0, 5);
+                        window.opener.updateModelPosition('/models/couch_left.glb', -4, 0, -4);
+                        window.opener.updateModelPosition('/models/couch_right.glb', 4, 0, 4);
                         log("Couches positioned far apart.");
                         
                         // Update input fields
