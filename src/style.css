@@ -25,6 +25,7 @@ a:hover {
 body {
   margin: 0;
   overflow: hidden;
+  /* cursor: none; */
 }
 
 h1 {
@@ -37,6 +38,7 @@ h1 {
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  background-color: #1a1a1a;
 }
 
 .logo {
@@ -82,12 +84,82 @@ button:focus-visible {
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
-    background-color: #ffffff;
+    background-color: #1a1a1a;
   }
   a:hover {
     color: #747bff;
   }
   button {
     background-color: #f9f9f9;
+  }
+}
+
+/* Center-screen crosshair */
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #000;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Ensure audio controls are always visible */
+#audioControls {
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+  z-index: 9999 !important;
+  display: flex !important;
+  pointer-events: auto !important;
+}
+
+/* Mobile/Tactile Controls */
+@media (pointer: coarse) {
+  #audioControls {
+    bottom: 20px !important;
+    top: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    flex-direction: row !important;
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    padding: 1rem !important;
+    border-radius: 1rem !important;
+    gap: 1rem !important;
+  }
+  #audioControls button {
+    padding: .5rem .75rem !important;
+    font-size: .8rem !important;
+  }
+  #audioControls input[type="range"] {
+    width: 150px !important;
+    height: 12px !important;
+  }
+}
+
+/* Desktop/Mouse Controls */
+@media (pointer: fine) {
+  #audioControls {
+    top: 10px !important;
+    bottom: auto !important;
+    left: 10px !important;
+    transform: none !important;
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    padding: 10px !important;
+    border-radius: 5px !important;
+    gap: 10px !important;
+  }
+  #audioControls button {
+    padding: 0.6em 1.2em !important;
+    font-size: 1em !important;
+  }
+  #audioControls input[type="range"] {
+    width: 100px !important;
+    height: 8px !important;
   }
 }
