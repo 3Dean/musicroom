@@ -241,6 +241,7 @@ scene.add(dir);
 const listener = new THREE.AudioListener();
 camera.add(listener);
 
+
 // Get the audio controls container from the DOM
 const audioControlsContainer = document.getElementById('audioControls');
 if (!audioControlsContainer) {
@@ -260,6 +261,45 @@ playButton.style.cursor = 'pointer';
 playButton.style.fontWeight = 'bold';
 playButton.style.fontSize = '11px';
 audioControlsContainer.appendChild(playButton);
+
+// Create SomaFM station buttons
+const somaStations = [
+  { name: 'Groove Salad (Chill)', stream: 'https://ice4.somafm.com/groovesalad-128-mp3', info: 'https://api.somafm.com/channels/groovesalad.json' },
+  { name: 'Secret Agent (Jazz)', stream: 'https://ice6.somafm.com/secretagent-128-mp3', info: 'https://api.somafm.com/channels/secretagent.json' },
+  { name: 'Metal Detector (Metal)', stream: 'https://ice1.somafm.com/metal-128-mp3', info: 'https://api.somafm.com/channels/metal.json' },
+  { name: 'Drone Zone', stream: 'https://ice1.somafm.com/dronezone-128-mp3', info: 'https://api.somafm.com/channels/dronezone.json' },
+  { name: 'DEF CON Radio', stream: 'https://ice4.somafm.com/defcon-128-mp3', info: 'https://api.somafm.com/channels/defcon.json' },
+  { name: 'Beat Blender', stream: 'https://ice2.somafm.com/beatblender-128-mp3', info: 'https://api.somafm.com/channels/beatblender.json' },
+  { name: 'Doomed (Dark)', stream: 'https://ice6.somafm.com/doomed-128-mp3', info: 'https://api.somafm.com/channels/doomed.json' },
+  { name: 'Dub Step Beyond', stream: 'https://ice2.somafm.com/dubstep-128-mp3', info: 'https://api.somafm.com/channels/dubstep.json' },
+  { name: 'Indie Pop Rocks', stream: 'https://ice1.somafm.com/indiepop-128-mp3', info: 'https://api.somafm.com/channels/indiepop.json' },
+  { name: 'Mission Control', stream: 'https://ice6.somafm.com/missioncontrol-128-mp3', info: 'https://api.somafm.com/channels/missioncontrol.json' }
+];
+// Dropdown to select station
+const stationSelect = document.createElement('select');
+stationSelect.style.padding = '6px';
+stationSelect.style.borderRadius = '4px';
+stationSelect.style.cursor = 'pointer';
+stationSelect.style.fontSize = '12px';
+stationSelect.style.backgroundColor = '#333';
+stationSelect.style.color = '#fff';
+
+somaStations.forEach((station, index) => {
+  const option = document.createElement('option');
+  option.value = index.toString();
+  option.textContent = station.name;
+  stationSelect.appendChild(option);
+});
+audioControlsContainer.appendChild(stationSelect);
+
+// Display current station and track
+const nowPlaying = document.createElement('div');
+nowPlaying.style.color = 'white';
+nowPlaying.style.fontSize = '12px';
+nowPlaying.style.marginLeft = '10px';
+nowPlaying.textContent = 'Station: Groove Salad | Track: Loading...';
+audioControlsContainer.appendChild(nowPlaying);
+
 
 // Create volume slider
 const volumeSlider = document.createElement('input');
@@ -360,6 +400,23 @@ playButton.addEventListener('click', function() {
         playButton.textContent = 'Play Music';
         playButton.style.backgroundColor = '#9e552f'; // Blue for play
     }
+});
+
+let selectedStationIndex = 0;
+audioElement.src = somaStations[selectedStationIndex].stream;
+
+stationSelect.addEventListener('change', () => {
+  selectedStationIndex = parseInt(stationSelect.value);
+  const selected = somaStations[selectedStationIndex];
+
+  audioElement.src = selected.stream;
+  audioElement.load();
+  if (isPlaying) {
+    audioElement.play();
+    playButton.textContent = 'Pause';
+    playButton.style.backgroundColor = '#dc3545';
+  }
+  updateNowPlaying(); // Refresh song info
 });
 
 // Volume slider event listener - using 'input' for continuous update
@@ -631,6 +688,21 @@ const proximityDistance = 2.01; // Increased from 2 to make detection easier
 
 // Debug information
 console.log("Couch interaction system initialized");
+
+function updateNowPlaying() {
+  const infoUrl = somaStations[selectedStationIndex].info;
+  fetch(infoUrl)
+    .then(res => res.json())
+    .then(data => {
+      const channel = data.channel;
+      nowPlaying.textContent = `Station: ${channel.title} | Track: ${channel.lastPlaying}`;
+    })
+    .catch(err => {
+      nowPlaying.textContent = 'Now Playing: (error)';
+      console.error('Error fetching track info:', err);
+    });
+}
+
 
 // Preload emission textures
 const emitLoader = new THREE.TextureLoader();
@@ -1482,4 +1554,9 @@ if (heldObject) {
 }
 
 animate();
+updateNowPlaying();
+setInterval(updateNowPlaying, 30000);
 } // End of initializeApp function
+
+
+
