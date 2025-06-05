@@ -882,6 +882,8 @@ modelPositions['/models/vinylrecord.glb'] = new THREE.Vector3(1.523, 0.23, -2.28
 // Example usage:
 // updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 0, 3));
 
+modelRotations['/models/vinylrecord.glb'] = new THREE.Euler(Math.PI / 2, 0, 0); // example: rotate 90° around Y
+
 staticModelUrls.forEach(url => {
   loader.load(url, (gltf: any) => {
     const modelScene = gltf.scene;
