@@ -151,6 +151,8 @@ renderer.domElement.addEventListener('pointermove', (event: PointerEvent) => {
   console.log(`
 Available seating position functions:
 
+Use "P" on the keyboard to toggle the couch position tester window.
+
 1. updateModelPosition(modelUrl, x, y, z)
    - Updates the position of a model
    - Example: updateModelPosition('/models/couch_left.glb', -3, 0, 3)
@@ -707,9 +709,27 @@ console.log("Couch interaction system initialized");
     });
 } */
 
+    
+// Create loading screen overlay
+const loadingScreen = document.getElementById('loading-screen');
+
+const manager = new THREE.LoadingManager();
+manager.onStart = function (url, itemsLoaded, itemsTotal) {
+  console.log(`Started loading: ${url}`);
+};
+manager.onProgress = function (url, itemsLoaded, itemsTotal) {
+  console.log(`Loaded ${itemsLoaded} of ${itemsTotal} files.`);
+};
+manager.onLoad = function () {
+  console.log('All assets loaded.');
+  if (loadingScreen) loadingScreen.style.display = 'none'; // hide overlay
+};
+manager.onError = function (url) {
+  console.error(`Error loading: ${url}`);
+};
 
 // Preload emission textures
-const emitLoader = new THREE.TextureLoader();
+const emitLoader = new THREE.TextureLoader(manager);
 const EMIT_COUNT = 24;
 const emitTextures: THREE.Texture[] = [];
 for (let i = 0; i < EMIT_COUNT; i++) {
@@ -722,8 +742,11 @@ for (let i = 0; i < EMIT_COUNT; i++) {
   emitTextures.push(tex);
 }
 
+
+
+
 // GLTF Loader
-const loader = new GLTFLoader();
+const loader = new GLTFLoader(manager);
 
 // Vapor effect material
 let vaporEffectMaterial: THREE.ShaderMaterial | null = null;
@@ -1061,7 +1084,7 @@ staticModelUrls.forEach(url => {
 
 // Function to switch mood textures
 function switchMoodTextures(mood: string) {
-  const loader = new THREE.TextureLoader();
+  const loader = new THREE.TextureLoader(manager);
 
   const frameNames = ['image01', 'image02', 'image03', 'image04'];
 
