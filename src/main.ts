@@ -1082,14 +1082,13 @@ function switchMoodTextures(mood: string) {
     }
 
     loader.load(texturePath, (newTexture) => {
-      /* renderer.outputEncoding = THREE.sRGBEncoding;*/
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.3; 
-
+      //renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      //renderer.toneMappingExposure = 1.2;
       //(renderer as any).outputEncoding = (THREE as any).sRGBEncoding;
 
       newTexture.flipY = false;
       //(newTexture as any).encoding = (THREE as any).sRGBEncoding;
+      newTexture.colorSpace = THREE.SRGBColorSpace;
 
       // Create a new standard material (instead of keeping AO/etc from the GLB)
       const updatedMaterial = new THREE.MeshStandardMaterial({
