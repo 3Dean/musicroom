@@ -309,15 +309,6 @@ somaStations.forEach((station, index) => {
 });
 audioControlsContainer.appendChild(stationSelect);
 
-// Display current station and track
-/* const nowPlaying = document.createElement('div');
-nowPlaying.style.color = 'white';
-nowPlaying.style.fontSize = '12px';
-nowPlaying.style.marginLeft = '10px';
-nowPlaying.textContent = 'Station: Groove Salad | Track: Loading...';
-audioControlsContainer.appendChild(nowPlaying); */
-
-
 // Create volume slider
 const volumeSlider = document.createElement('input');
 volumeSlider.type = 'range';
@@ -708,21 +699,6 @@ const proximityDistance = 2.01; // Increased from 2 to make detection easier
 // Debug information
 console.log("Couch interaction system initialized");
 
-/* function updateNowPlaying() {
-  const infoUrl = somaStations[selectedStationIndex].info;
-  fetch(infoUrl)
-    .then(res => res.json())
-    .then(data => {
-      const channel = data.channel;
-      nowPlaying.textContent = `Station: ${channel.title} | Track: ${channel.lastPlaying}`;
-    })
-    .catch(err => {
-      nowPlaying.textContent = 'Now Playing: (error)';
-      console.error('Error fetching track info:', err);
-    });
-} */
-
-
 // Create loading screen overlay
 
 const manager = new THREE.LoadingManager();
@@ -873,10 +849,11 @@ const staticModelUrls = [
   '/models/structure_wall001.glb',
   '/models/structure_wall002.glb',
   '/models/structure_wall003.glb',
-  '/models/rug.glb'
+  '/models/rug.glb',
+  '/models/coffee.glb' // Add coffee model
 ];
 
-const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb'];
+const pickableUrls = ['/models/boss.glb', '/models/leakstereo.glb', '/models/vinylrecord.glb', '/models/coffee.glb'];
 const interactiveObjects: THREE.Mesh[] = []; // Will store child meshes of pickable objects
 const animationMixers: {[key: string]: THREE.AnimationMixer} = {};
 const modelAnimations: {[key: string]: THREE.AnimationClip[]} = {};
@@ -974,6 +951,7 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
           (type === 'couch_right' && modelUrl === '/models/couch_right.glb') ||
           (type === 'boss' && modelUrl === '/models/boss.glb') ||
           (type === 'album' && modelUrl === '/models/vinylrecord.glb') ||
+          (type === 'coffee' && modelUrl === '/models/coffee.glb') ||
           (type === 'chair' && modelUrl === '/models/chair.glb')) {
         object.position.copy(position);
         
@@ -1012,15 +990,21 @@ modelPositions['/models/chair.glb'] = new THREE.Vector3(0, 0, 0); // Default cha
 modelPositions['/models/boss.glb'] = new THREE.Vector3(-0.847, 0, -2.02); // Default audio equipment position
 modelPositions['/models/leakstereo.glb'] = new THREE.Vector3(1.4933, -0.011, 4.558); // Default Stereo position
 modelPositions['/models/vinylrecord.glb'] = new THREE.Vector3(1.523, 0.23, -2.28); // Default record position
+modelPositions['/models/coffee.glb'] = new THREE.Vector3(-0.051, 1.069, -1.1182); // Default coffee mug position
 
 // Example usage:
 // updateModelPosition('/models/couch_left.glb', new THREE.Vector3(-5, 0, 3));
 
 modelRotations['/models/vinylrecord.glb'] = new THREE.Euler(Math.PI / 2, 0, 0); // example: rotate 90° around Y
+modelRotations['/models/coffee.glb'] = new THREE.Euler(0, 30, 0); // example: rotate 90° around Y
 
 staticModelUrls.forEach(url => {
   loader.load(url, (gltf: any) => {
     const modelScene = gltf.scene;
+    if (url === '/models/coffee.glb') {
+  vaporEffectMaterial = addVaporToCoffee(modelScene);
+}
+
     // ✅ Extract filename and assign it as the name
     const parts = url.split('/');
     const filename = parts[parts.length - 1]; // "image01.glb"
@@ -1159,7 +1143,8 @@ function switchMoodTextures(mood: string) {
 
 
 // Initialize vapor effect
-vaporEffectMaterial = addVaporToCoffee(scene, loader);
+//vaporEffectMaterial = addVaporToCoffee(scene, loader);
+
 
 // Create a button element for sitting interaction
 const interactionPrompt = document.createElement('button'); // Changed to button
@@ -1665,7 +1650,7 @@ if (heldObject) {
 
   // Update vapor animation
   if (vaporEffectMaterial) {
-    vaporEffectMaterial.uniforms.time.value += 0.005; // Adjust speed as needed
+    vaporEffectMaterial.uniforms.time.value += 0.003; // Adjust speed as needed
   }
 
   // Animate flowers/plants

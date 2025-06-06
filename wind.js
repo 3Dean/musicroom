@@ -178,6 +178,12 @@
      // Animate flowers if we have any
      animateFlowers(time);
 
+      // Vapor effect animation
+     if (vaporEffectMaterial) {
+  vaporEffectMaterial.uniforms.time.value += 0.005; // Adjust speed as needed
+}
+
+
      // Render
      renderer.render(scene, camera);
    }

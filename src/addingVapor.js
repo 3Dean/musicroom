@@ -15,14 +15,14 @@ const totalFrames = 4; // Only 4 quadrant frames
 
 // --- Particle geometry ---
 const vaporGeometry = new THREE.BufferGeometry();
-const count = 3; // Number of vapor particles
+const count = 4; // Number of vapor particles
 
 const positions = new Float32Array(count * 3);
 const offsets = new Float32Array(count);
 
 for (let i = 0; i < count; i++) {
   // Single particle at model center, random frame start
-  positions.set([0, 0, 0], i * 3); // Position will be relative to the Points object
+  positions.set([0, -0.1, 0], i * 3); // Position will be relative to the Points object
   offsets[i] = Math.random() * totalFrames;
 }
 
@@ -91,34 +91,20 @@ const vaporMaterial = new THREE.ShaderMaterial({
   `,
 });
 
-export function addVaporToCoffee(scene, gltfLoader) {
-  // Load coffee model and add vapor emitter to it
-  gltfLoader.load('/models/coffee.glb', (gltf) => { // Ensure this path is correct
-    const coffeeModel = gltf.scene;
-    // Optional: adjust coffee model position/scale if needed
-    // coffeeModel.position.set(x, y, z);
-    scene.add(coffeeModel);
+export function addVaporToCoffee(targetObject) {
+  // Compute bounding box to position vapor
+  const box = new THREE.Box3().setFromObject(targetObject);
+  const center = box.getCenter(new THREE.Vector3());
+  const maxY = box.max.y;
 
-    // Compute bounding box for positioning emitter on top of the coffee
-    const box = new THREE.Box3().setFromObject(coffeeModel);
-    const center = box.getCenter(new THREE.Vector3());
-    const maxY = box.max.y;
+  // Create vapor emitter points
+  const vaporParticles = new THREE.Points(vaporGeometry, vaporMaterial);
+  vaporParticles.position.set(center.x, maxY + 0.1, center.z); // Adjust as needed
 
-    // Create vapor emitter points
-    const vaporParticles = new THREE.Points(vaporGeometry, vaporMaterial);
-    // Position the vapor slightly above the coffee model's highest point
-    vaporParticles.position.set(center.x, maxY + 0.1, center.z); // Adjust Y offset as needed
-    
-    scene.add(vaporParticles);
-    console.log('Coffee model and vapor effect added to the scene.');
-  },
-  undefined, // onProgress callback (optional)
-  (error) => {
-    console.error('An error happened while loading the coffee model for vapor:', error);
-  });
+  // Add vapor to the target object's parent
+  targetObject.add(vaporParticles); // attach vapor to the coffee mug itself
 
-  return vaporMaterial; // Return material to be updated in the main animation loop
+  console.log('✅ Vapor effect added to target object.');
+  return vaporMaterial;
 }
 
-// Removed self-contained animate() function and direct renderer.render calls
-// Removed direct access to window.scene, window.camera, window.renderer
