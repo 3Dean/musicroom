@@ -40,8 +40,6 @@ import { animateFlowers, initializeWindEffectOnModel } from './wind'; // Import 
 //import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass';
 //import { Vector3, Euler, Object3D } from 'three';
 import gsap from 'gsap'; // optional, for smooth tweening
-
-// import { Audio as ThreeAudio } from 'three'; // Removed as ThreeAudio is not used
 import * as THREE from 'three';
 
 // --- TOUCH CONTROL VARIABLES ---
@@ -96,9 +94,12 @@ camera.position.set(-0.84, 1.64, 0.45); // Set initial camera position
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+(renderer as any).outputEncoding = (THREE as any).sRGBEncoding;
+//renderer.outputEncoding = THREE.sRGBEncoding; // ✅ This works
 document.body.appendChild(renderer.domElement);
 renderer.domElement.tabIndex = 0;
 renderer.domElement.style.outline = 'none';
+
 
 // Listen for pointer move to update hover detection coordinates
 renderer.domElement.addEventListener('pointermove', (event: PointerEvent) => {
@@ -330,7 +331,7 @@ volumeLabel.style.fontSize = '14px';
 volumeLabel.style.marginRight = '5px';
 
 // Add volume label and slider to container
-audioControlsContainer.appendChild(volumeLabel);
+//audioControlsContainer.appendChild(volumeLabel);
 audioControlsContainer.appendChild(volumeSlider);
 
 // Create HTML audio element for streaming
@@ -1056,6 +1057,8 @@ staticModelUrls.forEach(url => {
   });
 });
 
+
+
 // Function to switch mood textures
 function switchMoodTextures(mood: string) {
   const loader = new THREE.TextureLoader();
@@ -1063,7 +1066,7 @@ function switchMoodTextures(mood: string) {
   const frameNames = ['image01', 'image02', 'image03', 'image04'];
 
   frameNames.forEach((frameName) => {
-    const texturePath = `/images/moods/${mood}/${frameName}.jpg`;
+    const texturePath = `/images/moods/${mood}/${frameName}.png`;
 
     let meshToUpdate: THREE.Mesh | null = null;
 
@@ -1079,16 +1082,33 @@ function switchMoodTextures(mood: string) {
     }
 
     loader.load(texturePath, (newTexture) => {
-      newTexture.flipY = false; // ✅ Prevent upside-down image
-      const material = meshToUpdate!.material as THREE.MeshStandardMaterial;
-      material.map = newTexture;
-      material.needsUpdate = true;
-      console.log(`Applied ${mood} texture to ${frameName}`);
-    }, undefined, (err) => {
-      console.error(`Failed to load texture: ${texturePath}`, err);
+      /* renderer.outputEncoding = THREE.sRGBEncoding;*/
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.3; 
+
+      (renderer as any).outputEncoding = (THREE as any).sRGBEncoding;
+(newTexture as any).encoding = (THREE as any).sRGBEncoding;
+
+
+      newTexture.flipY = false;
+      (newTexture as any).encoding = (THREE as any).sRGBEncoding;
+
+      // Create a new standard material (instead of keeping AO/etc from the GLB)
+      const updatedMaterial = new THREE.MeshStandardMaterial({
+        map: newTexture,
+        metalness: 0.0,
+        roughness: 1.0,
+        toneMapped: true
+      });
+
+      updatedMaterial.needsUpdate = true;
+      meshToUpdate!.material = updatedMaterial;
+
+      console.log(`✅ Replaced full material for ${frameName}`);
     });
   });
 }
+
 (window as any).switchMoodTextures = switchMoodTextures;
 
 

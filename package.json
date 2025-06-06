@@ -11,7 +11,7 @@
   "devDependencies": {
     "@aws-amplify/backend": "^1.16.1",
     "@aws-amplify/backend-cli": "^1.7.2",
-    "@types/three": "^0.176.0",
+    "@types/three": "^0.177.0",
     "aws-cdk-lib": "^2.189.1",
     "constructs": "^10.4.2",
     "esbuild": "^0.25.5",
@@ -23,6 +23,6 @@
   "dependencies": {
     "aws-amplify": "^6.15.0",
     "gsap": "^3.13.0",
-    "three": "^0.176.0"
+    "three": "^0.177.0"
   }
 }
