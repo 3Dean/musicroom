@@ -65,7 +65,9 @@ let previousMouseX = 0;
 let previousMouseY = 0;
 
 // Call initializeApp directly since loading screen is removed
-initializeApp();
+window.addEventListener('DOMContentLoaded', () => {
+  initializeApp();
+});
 
 function initializeApp() {
   console.log(`isTouchDevice: ${isTouchDevice}`); // Diagnostic log
@@ -94,9 +96,20 @@ camera.position.set(-0.84, 1.64, 0.45); // Set initial camera position
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-(renderer as any).outputEncoding = (THREE as any).sRGBEncoding;
-//renderer.outputEncoding = THREE.sRGBEncoding; // ✅ This works
-document.body.appendChild(renderer.domElement);
+//(renderer as any).outputEncoding = (THREE as any).sRGBEncoding;
+
+//document.body.appendChild(renderer.domElement);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.outputColorSpace = THREE.SRGBColorSpace; // if not already set
+
+const appDiv = document.getElementById('app');
+if (appDiv) {
+  appDiv.appendChild(renderer.domElement);
+} else {
+  document.body.appendChild(renderer.domElement);
+  console.warn('#app not found, appending to body instead');
+}
+//document.getElementById('app')?.appendChild(renderer.domElement);
 renderer.domElement.tabIndex = 0;
 renderer.domElement.style.outline = 'none';
 
@@ -709,23 +722,37 @@ console.log("Couch interaction system initialized");
     });
 } */
 
-    
+
 // Create loading screen overlay
 const loadingScreen = document.getElementById('loading-screen');
 
 const manager = new THREE.LoadingManager();
 manager.onStart = function (url, itemsLoaded, itemsTotal) {
   console.log(`Started loading: ${url}`);
+  console.log(`Progress: ${itemsLoaded} of ${itemsTotal}`);
 };
 manager.onProgress = function (url, itemsLoaded, itemsTotal) {
-  console.log(`Loaded ${itemsLoaded} of ${itemsTotal} files.`);
+   console.log(`📦 Loading ${url} (${itemsLoaded}/${itemsTotal})`);
+  const progress = (itemsLoaded / itemsTotal) * 100;
+
+  const bar = document.getElementById('progress-bar');
+  if (bar) {
+    bar.style.width = `${progress}%`;
+  }
 };
 manager.onLoad = function () {
-  console.log('All assets loaded.');
-  if (loadingScreen) loadingScreen.style.display = 'none'; // hide overlay
+   const loadingScreen = document.getElementById('loading-screen');
+  if (loadingScreen && loadingScreen.parentNode) {
+    loadingScreen.parentNode.removeChild(loadingScreen); // 👈 physically removes it from DOM
+  }
+  console.log('✅ All assets loaded and loading screen removed.');
 };
 manager.onError = function (url) {
-  console.error(`Error loading: ${url}`);
+ console.error(`❌ Error loading: ${url}`);
+  const bar = document.getElementById('progress-bar');
+  if (bar) {
+    bar.style.background = 'red';
+  }
 };
 
 // Preload emission textures
