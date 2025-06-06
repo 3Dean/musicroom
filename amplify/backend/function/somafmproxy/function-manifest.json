@@ -1,5 +1,6 @@
 {
   "name": "somafmproxy",
   "runtime": "nodejs18.x",
-  "entry": "index.ts"
+  "entry": "index.ts",
+  "expose": true
 }

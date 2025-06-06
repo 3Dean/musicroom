@@ -293,12 +293,12 @@ somaStations.forEach((station, index) => {
 audioControlsContainer.appendChild(stationSelect);
 
 // Display current station and track
-const nowPlaying = document.createElement('div');
+/* const nowPlaying = document.createElement('div');
 nowPlaying.style.color = 'white';
 nowPlaying.style.fontSize = '12px';
 nowPlaying.style.marginLeft = '10px';
 nowPlaying.textContent = 'Station: Groove Salad | Track: Loading...';
-audioControlsContainer.appendChild(nowPlaying);
+audioControlsContainer.appendChild(nowPlaying); */
 
 
 // Create volume slider
@@ -416,7 +416,7 @@ stationSelect.addEventListener('change', () => {
     playButton.textContent = 'Pause';
     playButton.style.backgroundColor = '#dc3545';
   }
-  updateNowPlaying(); // Refresh song info
+  //updateNowPlaying(); // Refresh song info
 });
 
 // Volume slider event listener - using 'input' for continuous update
@@ -689,7 +689,7 @@ const proximityDistance = 2.01; // Increased from 2 to make detection easier
 // Debug information
 console.log("Couch interaction system initialized");
 
-function updateNowPlaying() {
+/* function updateNowPlaying() {
   const infoUrl = somaStations[selectedStationIndex].info;
   fetch(infoUrl)
     .then(res => res.json())
@@ -701,7 +701,7 @@ function updateNowPlaying() {
       nowPlaying.textContent = 'Now Playing: (error)';
       console.error('Error fetching track info:', err);
     });
-}
+} */
 
 
 // Preload emission textures
@@ -945,6 +945,15 @@ function updateModelPosition(modelUrl: string, position: THREE.Vector3) {
   });
 }
 
+// List model names
+(window as any).listSceneObjects = function() {
+  console.log('--- Scene Graph ---');
+  scene.traverse((obj) => {
+    console.log(`[${obj.type}] ${obj.name}`);
+  });
+};
+
+
 // Add model position to modelPositions
 modelPositions['/models/chair.glb'] = new THREE.Vector3(0, 0, 0); // Default chair position
 modelPositions['/models/boss.glb'] = new THREE.Vector3(-0.847, 0, -2.02); // Default audio equipment position
@@ -959,6 +968,13 @@ modelRotations['/models/vinylrecord.glb'] = new THREE.Euler(Math.PI / 2, 0, 0); 
 staticModelUrls.forEach(url => {
   loader.load(url, (gltf: any) => {
     const modelScene = gltf.scene;
+    // ✅ Extract filename and assign it as the name
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1]; // "image01.glb"
+    const modelName = filename.replace('.glb', ''); // "image01"
+
+    modelScene.name = modelName;
+
     scene.add(modelScene);
 
     // Initialize wind effect for plant leaves
@@ -1036,6 +1052,42 @@ staticModelUrls.forEach(url => {
     }
   });
 });
+
+// Function to switch mood textures
+function switchMoodTextures(mood: string) {
+  const loader = new THREE.TextureLoader();
+
+  const frameNames = ['image01', 'image02', 'image03', 'image04'];
+
+  frameNames.forEach((frameName) => {
+    const texturePath = `/images/moods/${mood}/${frameName}.jpg`;
+
+    let meshToUpdate: THREE.Mesh | null = null;
+
+    scene.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh && obj.name === frameName) {
+        meshToUpdate = obj as THREE.Mesh;
+      }
+    });
+
+    if (!meshToUpdate) {
+      console.warn(`Mesh not found: ${frameName}`);
+      return;
+    }
+
+    loader.load(texturePath, (newTexture) => {
+      newTexture.flipY = false; // ✅ Prevent upside-down image
+      const material = meshToUpdate!.material as THREE.MeshStandardMaterial;
+      material.map = newTexture;
+      material.needsUpdate = true;
+      console.log(`Applied ${mood} texture to ${frameName}`);
+    }, undefined, (err) => {
+      console.error(`Failed to load texture: ${texturePath}`, err);
+    });
+  });
+}
+(window as any).switchMoodTextures = switchMoodTextures;
+
 
 // Initialize vapor effect
 vaporEffectMaterial = addVaporToCoffee(scene, loader);
@@ -1554,8 +1606,8 @@ if (heldObject) {
 }
 
 animate();
-updateNowPlaying();
-setInterval(updateNowPlaying, 30000);
+//updateNowPlaying();
+//setInterval(updateNowPlaying, 30000);
 } // End of initializeApp function
 
 

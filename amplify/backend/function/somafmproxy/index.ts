@@ -1,11 +1,9 @@
-import { AmplifyFunctionHandler } from '@aws-amplify/backend/function';
-
-export const handler: AmplifyFunctionHandler = async (event) => {
+export const handler = async (event: any) => {
   const station = event.queryStringParameters?.station || 'groovesalad';
   const apiUrl = `https://api.somafm.com/channels/${station}.json`;
 
   const response = await fetch(apiUrl);
-  const data = await response.text(); // return as raw JSON string
+  const data = await response.text();
 
   return {
     statusCode: 200,
