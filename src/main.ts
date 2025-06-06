@@ -724,8 +724,6 @@ console.log("Couch interaction system initialized");
 
 
 // Create loading screen overlay
-const loadingScreen = document.getElementById('loading-screen');
-if (loadingScreen) loadingScreen.remove(); // ✅ now it's used
 
 const manager = new THREE.LoadingManager();
 manager.onStart = function (url, itemsLoaded, itemsTotal) {
